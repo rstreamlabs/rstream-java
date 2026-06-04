@@ -1,0 +1,4 @@
+title = "rstream-java gitleaks configuration"
+
+[extend]
+useDefault = true
