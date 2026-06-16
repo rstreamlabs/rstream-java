@@ -6,6 +6,7 @@
       "release-type": "maven",
       "package-name": "io.rstream:rstream",
       "component": "rstream",
+      "initial-version": "0.1.0",
       "include-v-in-tag": true,
       "extra-files": [
         {
