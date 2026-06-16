@@ -5,6 +5,7 @@
     ".": {
       "release-type": "java",
       "package-name": "io.rstream:rstream",
+      "component": "rstream",
       "include-v-in-tag": true,
       "extra-files": [
         {
