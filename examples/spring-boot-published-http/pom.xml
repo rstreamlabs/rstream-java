@@ -9,7 +9,7 @@
   </parent>
   <groupId>io.rstream.examples</groupId>
   <artifactId>spring-boot-published-http</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0</version>
   <name>rstream Spring Boot published HTTP example</name>
   <properties>
     <java.version>17</java.version>
