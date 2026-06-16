@@ -125,9 +125,12 @@ try (var client = RstreamClient.fromEnv();
 }
 ```
 
-Private tunnels do not accept public exposure options such as `protocol()`,
-`httpVersion()`, `tlsMode()`, public authentication modes, trusted IPs, or GeoIP
-policy. Use `publish(false)` with a name and labels, then dial it by name or ID.
+Private tunnels do not accept public exposure options such as `hostname()`,
+public authentication modes, trusted IPs, or GeoIP policy. Protocol options may
+still be used when the engine can inspect the private stream, for example
+`protocol(HTTP)` with `httpVersion(H2C)` or `protocol(TLS)` with
+`upstreamTls(true)`. Use `publish(false)` with a name and labels, then dial it by
+name or ID.
 
 `accept(Duration)` returns `null` when no stream arrives before the timeout.
 `acceptAsync()` returns a `CompletableFuture<RstreamStream>` for services that

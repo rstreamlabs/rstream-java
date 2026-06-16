@@ -356,20 +356,16 @@ public final class ControlChannel implements AutoCloseable {
   }
 
   private static boolean hasPublicExposureOptions(CreateTunnelOptions options) {
-    return options.protocol() != null
-        || !options.geoIp().isEmpty()
+    return !options.geoIp().isEmpty()
         || !options.trustedIps().isEmpty()
         || options.tlsMode() != null
-        || !options.tlsAlpns().isEmpty()
         || options.tlsMinVersion() != null
         || !options.tlsCiphers().isEmpty()
         || options.mtlsAuth() != null
-        || options.httpVersion() != null
         || options.tokenAuth() != null
         || options.rstreamAuth() != null
         || options.challengeMode() != null
         || options.hostname() != null
-        || options.upstreamTls() != null
         || options.auth() != null;
   }
 }

@@ -1,6 +1,9 @@
 package io.rstream;
 
-/** Published tunnel protocol. */
+/**
+ * Tunnel protocol. Published tunnels use it as the edge protocol; private tunnels use it for
+ * protocol dispatch when supported by the engine.
+ */
 public enum TunnelProtocol {
   TLS("tls"),
   DTLS("dtls"),

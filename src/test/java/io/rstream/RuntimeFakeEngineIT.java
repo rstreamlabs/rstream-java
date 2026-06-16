@@ -482,6 +482,26 @@ final class RuntimeFakeEngineIT {
   }
 
   @Test
+  void privateTunnelProtocolOptionsAreSent() throws Exception {
+    try (var engine = FakeEngine.start(temp);
+        var client = client(engine);
+        var control = client.connect()) {
+      control.createTunnel(
+          CreateTunnelOptions.builder()
+              .name("private-api")
+              .publish(false)
+              .protocol(TunnelProtocol.HTTP)
+              .httpVersion(HttpVersion.H2C)
+              .build());
+      var request = engine.openTunnelRequests.poll(2, TimeUnit.SECONDS);
+      assertThat(request).isNotNull();
+      assertThat(request.getTunnelProperties().getPublish().getValue()).isFalse();
+      assertThat(request.getTunnelProperties().getProtocol().getValue()).isEqualTo("http");
+      assertThat(request.getTunnelProperties().getHttpVersion().getValue()).isEqualTo("h2c");
+    }
+  }
+
+  @Test
   void privateTunnelPublicExposureOptionsAreRejectedBeforeRequest() throws Exception {
     try (var engine = FakeEngine.start(temp);
         var client = client(engine);
@@ -492,7 +512,7 @@ final class RuntimeFakeEngineIT {
                       CreateTunnelOptions.builder()
                           .name("private-api")
                           .publish(false)
-                          .protocol(TunnelProtocol.HTTP)
+                          .hostname("private-api-project.t.example.test")
                           .build()))
           .isInstanceOf(RstreamException.class)
           .hasMessageContaining("Private tunnels do not accept public exposure options");
