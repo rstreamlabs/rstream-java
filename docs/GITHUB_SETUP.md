@@ -23,19 +23,39 @@ from Maven-filtered build metadata.
 
 ## Maven Central publishing
 
-CI and release-please do not require Maven Central credentials. Add publishing
-secrets only when the first public Maven Central release is ready:
+CI and release-please do not require Maven Central credentials. Publishing uses
+the Central Publisher Portal, not legacy OSSRH. Add publishing secrets only when
+the first public Maven Central release is ready:
 
 | Secret | Purpose |
 | --- | --- |
-| `MAVEN_CENTRAL_USERNAME` | Sonatype Central Portal username or token name. |
-| `MAVEN_CENTRAL_PASSWORD` | Sonatype Central Portal password or token secret. |
+| `MAVEN_CENTRAL_USERNAME` | Sonatype Central Portal token username. |
+| `MAVEN_CENTRAL_PASSWORD` | Sonatype Central Portal token password. |
 | `GPG_PRIVATE_KEY` | ASCII-armored signing key used for release artifacts. |
 | `GPG_PASSPHRASE` | Passphrase for the signing key. |
 
+Create an environment named `maven-central` in GitHub. Optionally require manual
+approval on that environment before publishing.
+
+In the Central Publisher Portal, verify ownership of the `io.rstream` namespace
+before the first release. Generate the publishing token at:
+
+```text
+https://central.sonatype.com/usertoken
+```
+
 The `release` Maven profile signs artifacts and uses the Central Publishing
-plugin. Keep the publish workflow disabled until coordinates and ownership are
-validated in Sonatype Central.
+plugin with `autoPublish` enabled. The publish workflow runs on published GitHub
+releases and can also be triggered manually.
+
+Export the signing key with:
+
+```bash
+gpg --armor --export-secret-keys <key-id>
+```
+
+Store the complete ASCII-armored output, including the `BEGIN` and `END` lines,
+as `GPG_PRIVATE_KEY`.
 
 ## Initial push checklist
 
