@@ -16,6 +16,9 @@ make it public after the repository history has been reviewed.
 | Repository variable | `CI_ALLOWED_ACTOR` | GitHub login allowed to run release-please on `main`. |
 | Repository secret | `RELEASE_PLEASE_TOKEN` | Token used by release-please to create and update release PRs. |
 
+Add `RELEASE_PLEASE_TOKEN` before setting `CI_ALLOWED_ACTOR`. If the variable is
+missing, the release-please workflow is skipped and normal CI still runs.
+
 `release-please-config.json` and `.release-please-manifest.json` are part of the
 repository contract. Keep both files versioned so release-please can update the
 Maven version consistently. The runtime version sent to the engine is loaded

@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   release-please:
-    if: ${{ github.actor == vars.CI_ALLOWED_ACTOR }}
+    if: ${{ vars.CI_ALLOWED_ACTOR != '' && github.actor == vars.CI_ALLOWED_ACTOR }}
     runs-on: ubuntu-latest
     steps:
       - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
