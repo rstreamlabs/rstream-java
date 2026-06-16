@@ -14,12 +14,10 @@ make it public after the repository history has been reviewed.
 | Type | Name | Purpose |
 | --- | --- | --- |
 | Repository variable | `CI_ALLOWED_ACTOR` | GitHub login allowed to run release-please on `main`. |
-| Repository variable | `RELEASE_PLEASE_ENABLED` | Set to `true` after `RELEASE_PLEASE_TOKEN` exists. |
 | Repository secret | `RELEASE_PLEASE_TOKEN` | Token used by release-please to create and update release PRs. |
 
-Add `RELEASE_PLEASE_TOKEN` before setting `RELEASE_PLEASE_ENABLED=true`. If that
-variable is missing or not `true`, the release-please workflow is skipped and
-normal CI still runs.
+Add `RELEASE_PLEASE_TOKEN` before setting `CI_ALLOWED_ACTOR`. If that variable
+is missing, the release-please workflow is skipped and normal CI still runs.
 
 `release-please-config.json` and `.release-please-manifest.json` are part of the
 repository contract. Keep both files versioned so release-please can update the
