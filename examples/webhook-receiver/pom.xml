@@ -7,13 +7,12 @@
   <properties>
     <maven.compiler.release>17</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <rstream.version>0.1.0-SNAPSHOT</rstream.version>
   </properties>
   <dependencies>
     <dependency>
       <groupId>io.rstream</groupId>
       <artifactId>rstream</artifactId>
-      <version>${rstream.version}</version>
+      <version>${project.version}</version>
     </dependency>
   </dependencies>
   <build>
