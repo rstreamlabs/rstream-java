@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.rstream</groupId>
   <artifactId>rstream</artifactId>
-  <version>0.1.0</version>
+  <version>0.1.1-SNAPSHOT</version>
   <packaging>jar</packaging>
   <name>rstream Java SDK</name>
   <description>Java SDK for rstream tunnels and webhook receivers.</description>
