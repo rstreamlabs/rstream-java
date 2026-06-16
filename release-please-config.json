@@ -3,7 +3,7 @@
   "pull-request-header": "New release created",
   "packages": {
     ".": {
-      "release-type": "java",
+      "release-type": "maven",
       "package-name": "io.rstream:rstream",
       "component": "rstream",
       "include-v-in-tag": true,
