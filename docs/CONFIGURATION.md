@@ -26,6 +26,8 @@ Set `RSTREAM_CONFIG` to use another file.
 | `RSTREAM_MTLS_CERT_FILE` | mTLS client certificate path. |
 | `RSTREAM_MTLS_KEY_FILE` | mTLS client key path. |
 | `RSTREAM_API_URL` | Control plane API URL for managed project discovery. |
+| `RSTREAM_TUNNEL_TRANSPORT` | `auto`, `tls`, or `quic`. Java maps `auto` to TLS and rejects explicit `quic`. |
+| `RSTREAM_QUIC_TRANSPORT` | Legacy selector. Prefer `RSTREAM_TUNNEL_TRANSPORT`. |
 
 The SDK also accepts `RSTREAM_ENGINE_ADDRESS` for compatibility with older local
 SDK workflows. Prefer `RSTREAM_ENGINE` in new code.
@@ -61,6 +63,11 @@ contexts:
 
 `transport.tls.insecureSkipVerify` is parsed for local test engines. Use a CA
 file for normal environments.
+
+Use `transport.mode: auto` in shared YAML. The Java runtime currently implements
+TLS only, so the default `auto` mode resolves to TLS. An explicit `quic` request
+fails during configuration resolution instead of being silently downgraded.
+Legacy `transport.useQuic` remains readable.
 
 If an explicit engine override is provided, stored tokens or stored mTLS
 credentials from another context are refused. Pass an explicit token, explicit

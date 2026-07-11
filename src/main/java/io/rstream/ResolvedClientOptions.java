@@ -13,4 +13,5 @@ record ResolvedClientOptions(
     String projectEndpoint,
     TlsOptions tls,
     String token,
+    String tunnelTransport,
     boolean zeroRtt) {}

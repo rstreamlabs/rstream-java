@@ -139,6 +139,8 @@ final class Protocol {
     if (properties.port() != null) builder.setPort(uint32Value(properties.port()));
     if (properties.upstreamTls() != null)
       builder.setUpstreamTls(boolValue(properties.upstreamTls()));
+    if (properties.datagramGuaranteedDelivery() != null)
+      builder.setDatagramGuaranteedDelivery(boolValue(properties.datagramGuaranteedDelivery()));
     return builder.build();
   }
 
@@ -169,7 +171,10 @@ final class Protocol {
         wrapperBool(properties.hasChallengeMode(), properties.getChallengeMode()),
         wrapperString(properties.hasHostname(), properties.getHostname()),
         wrapperInt(properties.hasPort(), properties.getPort()),
-        wrapperBool(properties.hasUpstreamTls(), properties.getUpstreamTls()));
+        wrapperBool(properties.hasUpstreamTls(), properties.getUpstreamTls()),
+        wrapperBool(
+            properties.hasDatagramGuaranteedDelivery(),
+            properties.getDatagramGuaranteedDelivery()));
   }
 
   static ServerDetails serverDetailsFromPb(Rstream.ServerDetails details) {
