@@ -40,6 +40,7 @@ final class ProtocolTest {
             false,
             "api.example.test",
             443,
+            true,
             true);
     var decoded = Protocol.tunnelPropertiesFromPb(Protocol.tunnelPropertiesToPb(properties));
     assertThat(decoded).isEqualTo(properties);

@@ -28,7 +28,8 @@ public record TunnelProperties(
     Boolean challengeMode,
     String hostname,
     Integer port,
-    Boolean upstreamTls) {
+    Boolean upstreamTls,
+    Boolean datagramGuaranteedDelivery) {
   public TunnelProperties {
     labels = labels == null ? Map.of() : Map.copyOf(labels);
     geoIp = geoIp == null ? List.of() : List.copyOf(geoIp);
@@ -65,6 +66,7 @@ public record TunnelProperties(
     private String hostname;
     private Integer port;
     private Boolean upstreamTls;
+    private Boolean datagramGuaranteedDelivery;
 
     public Builder id(String id) {
       this.id = id;
@@ -181,6 +183,11 @@ public record TunnelProperties(
       return this;
     }
 
+    public Builder datagramGuaranteedDelivery(Boolean datagramGuaranteedDelivery) {
+      this.datagramGuaranteedDelivery = datagramGuaranteedDelivery;
+      return this;
+    }
+
     public TunnelProperties build() {
       return new TunnelProperties(
           id,
@@ -205,7 +212,8 @@ public record TunnelProperties(
           challengeMode,
           hostname,
           port,
-          upstreamTls);
+          upstreamTls,
+          datagramGuaranteedDelivery);
     }
   }
 }

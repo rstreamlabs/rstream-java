@@ -38,9 +38,11 @@ final class ConfigResolver {
           "ERR_RSTREAM_AUTH_CONFLICT");
     }
     if (token != null) validateTokenExpiry(token);
-    if (env.useQuic()) {
+    var tunnelTransport =
+        resolveTunnelTransportMode(env.tunnelTransport(), env.useQuic(), config.tunnelTransport());
+    if (tunnelTransport.equals("quic")) {
       throw new UnsupportedFeatureException(
-          "RSTREAM_QUIC_TRANSPORT is not supported by rstream-java.",
+          "QUIC tunnel transport is not supported by rstream-java.",
           "ERR_RSTREAM_UNSUPPORTED_TRANSPORT");
     }
     if (options.requireToken() && token == null && !hasClientCertificate(tls)) {
@@ -61,6 +63,7 @@ final class ConfigResolver {
         normalizeOptional(firstDefined(options.projectEndpoint(), config.projectEndpoint())),
         tls,
         token,
+        "tls",
         options.zeroRtt());
   }
 
@@ -81,6 +84,7 @@ final class ConfigResolver {
           null,
           null,
           resolveMtls(env, null, null),
+          null,
           null);
     }
     var path = normalizeOptional(firstDefined(options.configPath(), env.configPath()));
@@ -127,13 +131,17 @@ final class ConfigResolver {
     }
     rejectUnsupportedTransport(environment == null ? null : environment.transport());
     rejectUnsupportedTransport(context == null ? null : context.transport());
+    var tunnelTransport = transportMode(context == null ? null : context.transport());
+    if (tunnelTransport == null)
+      tunnelTransport = transportMode(environment == null ? null : environment.transport());
     return new ResolvedConfig(
         apiUrl,
         context == null ? null : context.engine(),
         explicitEngine,
         context == null ? null : context.projectEndpoint(),
         tls,
-        token);
+        token,
+        tunnelTransport);
   }
 
   private static ConfigFile loadConfig(String path) {
@@ -322,10 +330,11 @@ final class ConfigResolver {
 
   private static void rejectUnsupportedTransport(TransportConfig transport) {
     if (transport == null || transport.raw().isEmpty()) return;
-    if (Boolean.TRUE.equals(transport.raw().get("useQuic"))) {
-      throw new UnsupportedFeatureException(
-          "QUIC transport is not supported by rstream-java.", "ERR_RSTREAM_UNSUPPORTED_TRANSPORT");
-    }
+    if (transport.raw().containsKey("mode")) parseTunnelTransportMode(transport.raw().get("mode"));
+    if (transport.raw().containsKey("useQuic")
+        && !(transport.raw().get("useQuic") instanceof Boolean))
+      throw new ConfigurationException(
+          "transport.useQuic must be a boolean.", "ERR_RSTREAM_INVALID_CONFIG");
     for (var key : List.of("bind", "dns", "ipFamily", "mptcp", "proxy")) {
       if (transport.raw().containsKey(key)) {
         throw new UnsupportedFeatureException(
@@ -333,6 +342,34 @@ final class ConfigResolver {
             "ERR_RSTREAM_UNSUPPORTED_TRANSPORT");
       }
     }
+  }
+
+  private static String transportMode(TransportConfig transport) {
+    if (transport == null) return null;
+    if (transport.raw().containsKey("mode"))
+      return parseTunnelTransportMode(transport.raw().get("mode"));
+    if (transport.raw().containsKey("useQuic"))
+      return Boolean.TRUE.equals(transport.raw().get("useQuic")) ? "quic" : "tls";
+    return null;
+  }
+
+  private static String resolveTunnelTransportMode(
+      String environment, Boolean legacyEnvironment, String configured) {
+    if (environment != null) return parseTunnelTransportMode(environment);
+    if (legacyEnvironment != null) return legacyEnvironment ? "quic" : "tls";
+    return configured == null ? "auto" : configured;
+  }
+
+  private static String parseTunnelTransportMode(Object value) {
+    if (!(value instanceof String text))
+      throw new ConfigurationException(
+          "transport.mode must be a string.", "ERR_RSTREAM_INVALID_CONFIG");
+    var mode = text.trim().toLowerCase();
+    if (!List.of("auto", "tls", "quic").contains(mode))
+      throw new ConfigurationException(
+          "Invalid tunnel transport '" + text + "' (valid: auto, tls, quic).",
+          "ERR_RSTREAM_INVALID_CONFIG");
+    return mode;
   }
 
   private static TlsOptions mergeTls(TlsOptions inherited, TlsOptions explicit) {
@@ -436,7 +473,8 @@ final class ConfigResolver {
       String mtlsCert,
       String mtlsKey,
       String token,
-      boolean useQuic) {
+      String tunnelTransport,
+      Boolean useQuic) {
     static EnvironmentSettings read(Map<String, String> environment) {
       return new EnvironmentSettings(
           normalizeApiUrl(environment.get("RSTREAM_API_URL")),
@@ -448,7 +486,13 @@ final class ConfigResolver {
           normalizeOptional(environment.get("RSTREAM_MTLS_CERT_FILE")),
           normalizeOptional(environment.get("RSTREAM_MTLS_KEY_FILE")),
           normalizeOptional(environment.get("RSTREAM_AUTHENTICATION_TOKEN")),
-          "1".equals(environment.get("RSTREAM_QUIC_TRANSPORT")));
+          normalizeOptional(environment.get("RSTREAM_TUNNEL_TRANSPORT")),
+          legacyQuic(environment.get("RSTREAM_QUIC_TRANSPORT")));
+    }
+
+    private static Boolean legacyQuic(String value) {
+      value = normalizeOptional(value);
+      return value == null ? null : value.equals("1");
     }
 
     boolean hasMtls() {
@@ -488,5 +532,6 @@ final class ConfigResolver {
       String engine,
       String projectEndpoint,
       TlsOptions tls,
-      String token) {}
+      String token,
+      String tunnelTransport) {}
 }

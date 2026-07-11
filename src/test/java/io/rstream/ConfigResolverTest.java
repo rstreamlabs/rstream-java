@@ -406,6 +406,54 @@ final class ConfigResolverTest {
   }
 
   @Test
+  void autoAndTlsTunnelTransportResolveToTls() {
+    var resolved =
+        ConfigResolver.resolve(
+            ClientOptions.builder().engine("engine.example.com:443").noToken(true).build(),
+            Map.of("RSTREAM_QUIC_TRANSPORT", "1", "RSTREAM_TUNNEL_TRANSPORT", "auto"));
+    assertThat(resolved.tunnelTransport()).isEqualTo("tls");
+  }
+
+  @Test
+  void quicAndInvalidTunnelTransportAreRejected() {
+    var options = ClientOptions.builder().engine("engine.example.com:443").noToken(true).build();
+    assertThatThrownBy(
+            () -> ConfigResolver.resolve(options, Map.of("RSTREAM_TUNNEL_TRANSPORT", "quic")))
+        .isInstanceOf(UnsupportedFeatureException.class)
+        .hasMessageContaining("QUIC tunnel transport");
+    assertThatThrownBy(
+            () -> ConfigResolver.resolve(options, Map.of("RSTREAM_TUNNEL_TRANSPORT", "udp")))
+        .isInstanceOf(ConfigurationException.class)
+        .hasMessageContaining("valid: auto, tls, quic");
+  }
+
+  @Test
+  void contextTunnelTransportOverridesEnvironmentTransport() throws Exception {
+    var configPath =
+        config(
+            """
+            defaults:
+              context:
+                name: prod
+            environments:
+              - apiUrl: https://rstream.io
+                transport:
+                  mode: quic
+            contexts:
+              - name: prod
+                apiUrl: https://rstream.io
+                engine: engine.example.com:443
+                transport:
+                  useQuic: false
+            """);
+    var resolved =
+        ConfigResolver.resolve(
+            ClientOptions.builder().configPath(configPath.toString()).noToken(true).build(),
+            Map.of());
+    assertThat(resolved.tunnelTransport()).isEqualTo("tls");
+  }
+
+  @Test
   void unsupportedTokenStorageIsRejected() throws Exception {
     var configPath =
         config(
