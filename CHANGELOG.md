@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/rstreamlabs/rstream-java/compare/rstream-v0.1.0...rstream-v0.2.0) (2026-07-11)
+
+
+### Features
+
+* add automatic transport and datagram delivery metadata ([4c917c9](https://github.com/rstreamlabs/rstream-java/commit/4c917c92d009d853eccc8f85df6ffb620c1d64b2))
+
 ## 0.1.0 (2026-06-16)
 
 
