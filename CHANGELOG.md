@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/rstreamlabs/rstream-java/compare/rstream-v0.2.0...rstream-v0.3.0) (2026-07-18)
+
+
+### Features
+
+* add published TCP tunnels ([b548952](https://github.com/rstreamlabs/rstream-java/commit/b548952ab80e711d996cc994e53baae4dbfc93c2))
+
 ## [0.2.0](https://github.com/rstreamlabs/rstream-java/compare/rstream-v0.1.0...rstream-v0.2.0) (2026-07-11)
 
 
