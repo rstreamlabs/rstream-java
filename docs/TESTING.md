@@ -62,6 +62,16 @@ environment where the forwarding address can be reached from the test process:
 RSTREAM_JAVA_E2E=1 RSTREAM_JAVA_E2E_PUBLISHED=1 mvn verify
 ```
 
+Published TCP checks additionally require published TCP to be enabled for the
+project and engine, and the allocated port to be reachable:
+
+```bash
+RSTREAM_JAVA_E2E=1 RSTREAM_JAVA_E2E_PUBLISHED_TCP=1 mvn verify
+```
+
+Set `RSTREAM_JAVA_E2E_PUBLISHED_CONNECT_HOST` when a local engine returns a
+hostname that is not directly resolvable from the test process.
+
 ## Examples
 
 Install the local snapshot before compiling or running examples:

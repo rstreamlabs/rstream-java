@@ -40,6 +40,15 @@ final class BytestreamTunnelTest {
             BytestreamTunnel.formatForwardingAddress(
                 TunnelProperties.builder()
                     .id("tun_1")
+                    .protocol(TunnelProtocol.TCP)
+                    .hostname("tcp.example.com")
+                    .port(10042)
+                    .build()))
+        .isEqualTo("tcp.example.com:10042 (tcp)");
+    assertThat(
+            BytestreamTunnel.formatForwardingAddress(
+                TunnelProperties.builder()
+                    .id("tun_1")
                     .protocol(TunnelProtocol.QUIC)
                     .host("quic.example.com:443")
                     .build()))

@@ -32,7 +32,8 @@ dial by name and ID, zero-RTT modes, manual accept, direct HTTP handlers, local
 HTTP forwarding, async connect, concurrent dials, cleanup, and optional
 published tunnel reachability.
 
-Published tunnel reachability is enabled with `RSTREAM_JAVA_E2E_PUBLISHED=1`.
+Published HTTP reachability is enabled with `RSTREAM_JAVA_E2E_PUBLISHED=1`.
+Published TCP reachability is enabled with `RSTREAM_JAVA_E2E_PUBLISHED_TCP=1`.
 
 ## Examples
 

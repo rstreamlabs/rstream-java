@@ -83,6 +83,27 @@ tunnel
     .join();
 ```
 
+## Create a published TCP tunnel
+
+Use `TunnelProtocol.TCP` for a raw TCP bytestream. Omit `port()` for an ephemeral address, or set it to a port already reserved by the project through the Control plane:
+
+```java
+try (var client = RstreamClient.fromEnv();
+    var control = client.connect()) {
+  var tunnel =
+      control.createTunnel(
+          CreateTunnelOptions.builder()
+              .protocol(TunnelProtocol.TCP)
+              .publish(true)
+              .port(10042)
+              .build());
+  System.out.println(tunnel.forwardingAddress());
+  tunnel.forwardTo("127.0.0.1", 22).join();
+}
+```
+
+The SDK does not reserve the port. Published TCP forwards downstream bytes without adding encryption or authentication; use a secure application protocol such as SSH, or choose a TLS tunnel for TLS traffic.
+
 ## Dial a private tunnel
 
 ```java

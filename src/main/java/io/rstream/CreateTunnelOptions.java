@@ -22,6 +22,7 @@ public record CreateTunnelOptions(
     Boolean rstreamAuth,
     Boolean challengeMode,
     String hostname,
+    Integer port,
     Boolean upstreamTls,
     TunnelAuth auth) {
   public CreateTunnelOptions {
@@ -58,6 +59,7 @@ public record CreateTunnelOptions(
     private Boolean rstreamAuth;
     private Boolean challengeMode;
     private String hostname;
+    private Integer port;
     private Boolean upstreamTls;
     private TunnelAuth auth;
 
@@ -146,6 +148,11 @@ public record CreateTunnelOptions(
       return this;
     }
 
+    public Builder port(Integer port) {
+      this.port = port;
+      return this;
+    }
+
     public Builder upstreamTls(Boolean upstreamTls) {
       this.upstreamTls = upstreamTls;
       return this;
@@ -175,6 +182,7 @@ public record CreateTunnelOptions(
           rstreamAuth,
           challengeMode,
           hostname,
+          port,
           upstreamTls,
           auth);
     }
