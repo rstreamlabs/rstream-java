@@ -6,6 +6,7 @@ package io.rstream;
  */
 public enum TunnelProtocol {
   TLS("tls"),
+  TCP("tcp"),
   DTLS("dtls"),
   QUIC("quic"),
   HTTP("http");

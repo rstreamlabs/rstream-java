@@ -502,6 +502,44 @@ final class RuntimeFakeEngineIT {
   }
 
   @Test
+  void publishedTCPOptionsAreSent() throws Exception {
+    try (var engine = FakeEngine.start(temp);
+        var client = client(engine);
+        var control = client.connect()) {
+      control.createTunnel(
+          CreateTunnelOptions.builder()
+              .name("ssh")
+              .protocol(TunnelProtocol.TCP)
+              .port(10042)
+              .build());
+      var request = engine.openTunnelRequests.poll(2, TimeUnit.SECONDS);
+      assertThat(request).isNotNull();
+      assertThat(request.getTunnelProperties().getType().getValue()).isEqualTo("bytestream");
+      assertThat(request.getTunnelProperties().getPublish().getValue()).isTrue();
+      assertThat(request.getTunnelProperties().getProtocol().getValue()).isEqualTo("tcp");
+      assertThat(request.getTunnelProperties().getPort().getValue()).isEqualTo(10042);
+    }
+  }
+
+  @Test
+  void publishedTCPRejectsIncompatibleOptionsBeforeRequest() throws Exception {
+    try (var engine = FakeEngine.start(temp);
+        var client = client(engine);
+        var control = client.connect()) {
+      assertThatThrownBy(
+              () ->
+                  control.createTunnel(
+                      CreateTunnelOptions.builder()
+                          .protocol(TunnelProtocol.TCP)
+                          .hostname("ssh.example.test")
+                          .build()))
+          .isInstanceOf(RstreamException.class)
+          .hasMessageContaining("do not accept");
+      assertThat(engine.openTunnelRequests).isEmpty();
+    }
+  }
+
+  @Test
   void privateTunnelPublicExposureOptionsAreRejectedBeforeRequest() throws Exception {
     try (var engine = FakeEngine.start(temp);
         var client = client(engine);

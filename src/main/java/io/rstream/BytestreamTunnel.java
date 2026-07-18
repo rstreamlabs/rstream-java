@@ -136,6 +136,8 @@ public final class BytestreamTunnel implements AutoCloseable {
       return "https://" + published;
     if (published != null && properties.protocol() == TunnelProtocol.TLS)
       return published + " (tls)";
+    if (published != null && properties.protocol() == TunnelProtocol.TCP)
+      return published + " (tcp)";
     if (published != null && properties.protocol() == TunnelProtocol.DTLS)
       return published + " (dtls)";
     if (published != null && properties.protocol() == TunnelProtocol.QUIC)
@@ -161,8 +163,9 @@ public final class BytestreamTunnel implements AutoCloseable {
   private static String publishedHost(TunnelProperties properties) {
     if (properties.hostname() != null && !properties.hostname().isBlank()) {
       var port = properties.port() == null ? 443 : properties.port();
-      if (properties.protocol() == TunnelProtocol.TLS || port != 443)
-        return properties.hostname() + ":" + port;
+      if (properties.protocol() == TunnelProtocol.TLS
+          || properties.protocol() == TunnelProtocol.TCP
+          || port != 443) return properties.hostname() + ":" + port;
       return properties.hostname();
     }
     if (properties.host() != null && !properties.host().isBlank()) return properties.host();

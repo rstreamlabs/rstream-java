@@ -322,6 +322,36 @@ public final class ControlChannel implements AutoCloseable {
           "Private tunnels do not accept public exposure options.",
           "ERR_RSTREAM_INVALID_TUNNEL_OPTIONS");
     }
+    if (options.port() != null && options.protocol() != TunnelProtocol.TCP) {
+      throw new RstreamException(
+          "A published port requires the TCP protocol.", "ERR_RSTREAM_INVALID_TUNNEL_OPTIONS");
+    }
+    if (options.port() != null && (options.port() < 1 || options.port() > 65535)) {
+      throw new RstreamException(
+          "The published TCP port must be between 1 and 65535.",
+          "ERR_RSTREAM_INVALID_TUNNEL_OPTIONS");
+    }
+    if (options.protocol() == TunnelProtocol.TCP && Boolean.FALSE.equals(options.publish())) {
+      throw new RstreamException(
+          "TCP tunnels must be published.", "ERR_RSTREAM_INVALID_TUNNEL_OPTIONS");
+    }
+    if (options.protocol() == TunnelProtocol.TCP
+        && (options.hostname() != null
+            || options.tlsMode() != null
+            || !options.tlsAlpns().isEmpty()
+            || options.tlsMinVersion() != null
+            || !options.tlsCiphers().isEmpty()
+            || options.mtlsAuth() != null
+            || options.httpVersion() != null
+            || options.upstreamTls() != null
+            || options.tokenAuth() != null
+            || options.rstreamAuth() != null
+            || options.challengeMode() != null
+            || options.auth() != null)) {
+      throw new RstreamException(
+          "TCP tunnels do not accept hostname, HTTP, TLS, or edge authentication options.",
+          "ERR_RSTREAM_INVALID_TUNNEL_OPTIONS");
+    }
     var auth = options.auth();
     var tokenAuth =
         options.tokenAuth() != null ? options.tokenAuth() : auth == null ? null : auth.token();
@@ -333,10 +363,11 @@ public final class ControlChannel implements AutoCloseable {
         options.challengeMode() != null
             ? options.challengeMode()
             : auth == null ? null : auth.challenge();
+    var publish = options.protocol() == TunnelProtocol.TCP ? Boolean.TRUE : options.publish();
     return TunnelProperties.builder()
         .name(options.name())
         .type(TunnelType.BYTESTREAM)
-        .publish(options.publish())
+        .publish(publish)
         .protocol(options.protocol())
         .labels(options.labels())
         .geoIp(options.geoIp())
@@ -351,6 +382,7 @@ public final class ControlChannel implements AutoCloseable {
         .rstreamAuth(rstreamAuth)
         .challengeMode(challengeMode)
         .hostname(options.hostname())
+        .port(options.port())
         .upstreamTls(options.upstreamTls())
         .build();
   }
@@ -366,6 +398,7 @@ public final class ControlChannel implements AutoCloseable {
         || options.rstreamAuth() != null
         || options.challengeMode() != null
         || options.hostname() != null
+        || options.port() != null
         || options.auth() != null;
   }
 }

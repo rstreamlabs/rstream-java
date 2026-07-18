@@ -207,6 +207,26 @@ final class RuntimeRealEngineIT {
     }
   }
 
+  @Test
+  void publishedTCPTunnelServesLocalEndpointWhenEnabled() throws Exception {
+    assumeRealEngine();
+    assumeTrue("1".equals(System.getenv("RSTREAM_JAVA_E2E_PUBLISHED_TCP")));
+    try (var http = LocalHttpServer.start();
+        var client = client();
+        var control = client.connect()) {
+      var tunnel =
+          control.createTunnel(CreateTunnelOptions.builder().protocol(TunnelProtocol.TCP).build());
+      var forwarding = tunnel.forwardTo(http.host(), http.port());
+      try {
+        var response = publishedTCPGet(tunnel.properties());
+        assertPublishedResponse(response, http.responseBody());
+      } finally {
+        control.closeTunnel(tunnel.id());
+        forwarding.get(10, TimeUnit.SECONDS);
+      }
+    }
+  }
+
   private static String publishedGet(String forwardingAddress) throws Exception {
     var uri = URI.create(forwardingAddress);
     if ("1".equals(System.getenv("RSTREAM_JAVA_E2E_PUBLISHED_TLS_INSECURE"))) {
@@ -215,6 +235,24 @@ final class RuntimeRealEngineIT {
     var request = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(20)).GET().build();
     var response = HttpClient.newHttpClient().send(request, BodyHandlers.ofString());
     return "HTTP " + response.statusCode() + "\n" + response.body();
+  }
+
+  private static String publishedTCPGet(TunnelProperties properties) throws IOException {
+    if (properties.hostname() == null || properties.port() == null)
+      throw new RstreamException(
+          "Engine did not return a published TCP address.", "ERR_RSTREAM_E2E_PROTOCOL");
+    var connectHost =
+        envOrDefault("RSTREAM_JAVA_E2E_PUBLISHED_CONNECT_HOST", properties.hostname());
+    try (var socket = new Socket(connectHost, properties.port())) {
+      socket.setSoTimeout(10_000);
+      socket
+          .getOutputStream()
+          .write(
+              ("GET / HTTP/1.1\r\nHost: " + properties.hostname() + "\r\nConnection: close\r\n\r\n")
+                  .getBytes(StandardCharsets.UTF_8));
+      socket.getOutputStream().flush();
+      return new String(socket.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+    }
   }
 
   private static void assertPublishedResponse(String response, String expectedBody) {
