@@ -111,6 +111,63 @@ final class RuntimeFakeEngineIT {
   }
 
   @Test
+  void proxyConnectionCanDialIngressEngine() throws Exception {
+    try (var owner = FakeEngine.start(temp);
+        var ingress = FakeEngine.start(temp);
+        var client = client(owner, false, "owner-pat");
+        var control = client.connect()) {
+      var tunnel =
+          control.createTunnel(
+              CreateTunnelOptions.builder().name("web").protocol(TunnelProtocol.HTTP).build());
+      owner.sendProxyConnection(tunnel.id(), "stream_direct", "stream-secret", ingress.address());
+      try (var stream = tunnel.accept(Duration.ofSeconds(2))) {
+        stream.outputStream().write("direct".getBytes(StandardCharsets.UTF_8));
+        stream.outputStream().flush();
+        assertThat(stream.inputStream().readNBytes(6))
+            .isEqualTo("direct".getBytes(StandardCharsets.UTF_8));
+      }
+      var response = owner.proxyConnectionResponses.poll(2, TimeUnit.SECONDS);
+      assertThat(response.hasError()).isFalse();
+      assertThat(owner.proxyRequests.poll(100, TimeUnit.MILLISECONDS)).isNull();
+      var proxyRequest = ingress.proxyRequests.poll(2, TimeUnit.SECONDS);
+      assertThat(proxyRequest.getStreamId()).isEqualTo("stream_direct");
+      assertThat(proxyRequest.getClientDetails().getToken().getValue()).isEqualTo("stream-secret");
+    }
+  }
+
+  @Test
+  void proxyRedirectWithoutStreamSecretIsRejected() throws Exception {
+    try (var owner = FakeEngine.start(temp);
+        var ingress = FakeEngine.start(temp);
+        var client = client(owner);
+        var control = client.connect()) {
+      var tunnel = control.createTunnel(CreateTunnelOptions.builder().name("web").build());
+      owner.sendProxyConnection(tunnel.id(), "stream_missing_secret", null, ingress.address());
+      var response = owner.proxyConnectionResponses.poll(2, TimeUnit.SECONDS);
+      assertThat(response.hasError()).isTrue();
+      assertThat(response.getError().getMessage().getValue()).contains("credentials");
+      assertThat(owner.proxyRequests.poll(100, TimeUnit.MILLISECONDS)).isNull();
+      assertThat(ingress.proxyRequests.poll(100, TimeUnit.MILLISECONDS)).isNull();
+    }
+  }
+
+  @Test
+  void proxyRedirectWithEmptyStreamSecretIsRejected() throws Exception {
+    try (var owner = FakeEngine.start(temp);
+        var ingress = FakeEngine.start(temp);
+        var client = client(owner);
+        var control = client.connect()) {
+      var tunnel = control.createTunnel(CreateTunnelOptions.builder().name("web").build());
+      owner.sendProxyConnection(tunnel.id(), "stream_empty_secret", "", ingress.address());
+      var response = owner.proxyConnectionResponses.poll(2, TimeUnit.SECONDS);
+      assertThat(response.hasError()).isTrue();
+      assertThat(response.getError().getMessage().getValue()).contains("credentials");
+      assertThat(owner.proxyRequests.poll(100, TimeUnit.MILLISECONDS)).isNull();
+      assertThat(ingress.proxyRequests.poll(100, TimeUnit.MILLISECONDS)).isNull();
+    }
+  }
+
+  @Test
   void concurrentTunnelCreationUsesOneControlChannelSafely() throws Exception {
     var count = 24;
     try (var engine = FakeEngine.start(temp);
@@ -511,6 +568,7 @@ final class RuntimeFakeEngineIT {
               .name("ssh")
               .protocol(TunnelProtocol.TCP)
               .port(10042)
+              .allowCrossRegionRouting(true)
               .build());
       var request = engine.openTunnelRequests.poll(2, TimeUnit.SECONDS);
       assertThat(request).isNotNull();
@@ -518,6 +576,7 @@ final class RuntimeFakeEngineIT {
       assertThat(request.getTunnelProperties().getPublish().getValue()).isTrue();
       assertThat(request.getTunnelProperties().getProtocol().getValue()).isEqualTo("tcp");
       assertThat(request.getTunnelProperties().getPort().getValue()).isEqualTo(10042);
+      assertThat(request.getTunnelProperties().getAllowCrossRegionRouting().getValue()).isTrue();
     }
   }
 
@@ -535,6 +594,15 @@ final class RuntimeFakeEngineIT {
                           .build()))
           .isInstanceOf(RstreamException.class)
           .hasMessageContaining("do not accept");
+      assertThatThrownBy(
+              () ->
+                  control.createTunnel(
+                      CreateTunnelOptions.builder()
+                          .protocol(TunnelProtocol.HTTP)
+                          .allowCrossRegionRouting(true)
+                          .build()))
+          .isInstanceOf(RstreamException.class)
+          .hasMessageContaining("requires the TCP protocol");
       assertThat(engine.openTunnelRequests).isEmpty();
     }
   }
@@ -580,15 +648,20 @@ final class RuntimeFakeEngineIT {
   }
 
   private static RstreamClient client(FakeEngine engine, boolean zeroRtt) {
-    return RstreamClient.fromEnv(
+    return client(engine, zeroRtt, null);
+  }
+
+  private static RstreamClient client(FakeEngine engine, boolean zeroRtt, String token) {
+    var builder =
         ClientOptions.builder()
             .engine(engine.address())
             .readConfigFile(false)
-            .noToken(true)
             .heartbeat(false)
             .zeroRtt(zeroRtt)
-            .tls(TlsOptions.builder().insecureSkipVerify(true).build())
-            .build());
+            .tls(TlsOptions.builder().insecureSkipVerify(true).build());
+    if (token == null) builder.noToken(true);
+    else builder.token(token);
+    return RstreamClient.fromEnv(builder.build());
   }
 
   private static String dialEcho(
@@ -666,13 +739,16 @@ final class RuntimeFakeEngineIT {
     }
 
     void sendProxyConnection(String tunnelId, String streamId, String secret) {
-      var request =
-          Rstream.ProxyConnReq.newBuilder()
-              .setTunnelId(tunnelId)
-              .setStreamId(streamId)
-              .setSecret(StringValue.newBuilder().setValue(secret))
-              .build();
-      writeControl(Rstream.Message.newBuilder().setProxyConnReq(request).build());
+      sendProxyConnection(tunnelId, streamId, secret, null);
+    }
+
+    void sendProxyConnection(
+        String tunnelId, String streamId, String secret, String proxyEndpoint) {
+      var request = Rstream.ProxyConnReq.newBuilder().setTunnelId(tunnelId).setStreamId(streamId);
+      if (secret != null) request.setSecret(StringValue.newBuilder().setValue(secret));
+      if (proxyEndpoint != null)
+        request.setProxyEndpoint(StringValue.newBuilder().setValue(proxyEndpoint));
+      writeControl(Rstream.Message.newBuilder().setProxyConnReq(request.build()).build());
     }
 
     void closeControlSocket() throws IOException {
@@ -879,52 +955,54 @@ final class RuntimeFakeEngineIT {
     private static SSLContext serverContext(Path temp) throws Exception {
       var keyStorePath = temp.resolve("server.p12");
       var keytool = Path.of(System.getProperty("java.home"), "bin", "keytool").toString();
-      var process =
-          new ProcessBuilder(
-                  keytool,
-                  "-genkeypair",
-                  "-alias",
-                  "server",
-                  "-keyalg",
-                  "RSA",
-                  "-storetype",
-                  "PKCS12",
-                  "-keystore",
-                  keyStorePath.toString(),
-                  "-storepass",
-                  "changeit",
-                  "-keypass",
-                  "changeit",
-                  "-dname",
-                  "CN=localhost",
-                  "-validity",
-                  "2",
-                  "-ext",
-                  "SAN=dns:localhost")
-              .redirectErrorStream(true)
-              .start();
-      if (process.waitFor() != 0) {
-        throw new IllegalStateException(
-            new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8));
-      }
-      var export =
-          new ProcessBuilder(
-                  keytool,
-                  "-exportcert",
-                  "-rfc",
-                  "-alias",
-                  "server",
-                  "-keystore",
-                  keyStorePath.toString(),
-                  "-storepass",
-                  "changeit",
-                  "-file",
-                  temp.resolve("server.crt").toString())
-              .redirectErrorStream(true)
-              .start();
-      if (export.waitFor() != 0) {
-        throw new IllegalStateException(
-            new String(export.getInputStream().readAllBytes(), StandardCharsets.UTF_8));
+      if (!java.nio.file.Files.exists(keyStorePath)) {
+        var process =
+            new ProcessBuilder(
+                    keytool,
+                    "-genkeypair",
+                    "-alias",
+                    "server",
+                    "-keyalg",
+                    "RSA",
+                    "-storetype",
+                    "PKCS12",
+                    "-keystore",
+                    keyStorePath.toString(),
+                    "-storepass",
+                    "changeit",
+                    "-keypass",
+                    "changeit",
+                    "-dname",
+                    "CN=localhost",
+                    "-validity",
+                    "2",
+                    "-ext",
+                    "SAN=dns:localhost")
+                .redirectErrorStream(true)
+                .start();
+        if (process.waitFor() != 0) {
+          throw new IllegalStateException(
+              new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8));
+        }
+        var export =
+            new ProcessBuilder(
+                    keytool,
+                    "-exportcert",
+                    "-rfc",
+                    "-alias",
+                    "server",
+                    "-keystore",
+                    keyStorePath.toString(),
+                    "-storepass",
+                    "changeit",
+                    "-file",
+                    temp.resolve("server.crt").toString())
+                .redirectErrorStream(true)
+                .start();
+        if (export.waitFor() != 0) {
+          throw new IllegalStateException(
+              new String(export.getInputStream().readAllBytes(), StandardCharsets.UTF_8));
+        }
       }
       var store = KeyStore.getInstance("PKCS12");
       try (var input = java.nio.file.Files.newInputStream(keyStorePath)) {

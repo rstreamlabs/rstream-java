@@ -1,12 +1,14 @@
 package io.rstream;
 
 import java.time.Duration;
+import java.util.Map;
 
 /** Options accepted by {@link RstreamClient}. */
 public record ClientOptions(
     String apiUrl,
     String configPath,
     String context,
+    Map<String, String> controlPlaneHeaders,
     String engine,
     boolean heartbeat,
     Duration heartbeatInterval,
@@ -15,11 +17,13 @@ public record ClientOptions(
     Boolean noToken,
     String projectEndpoint,
     boolean readConfigFile,
+    String region,
     boolean requireToken,
     String token,
     TlsOptions tls,
     boolean zeroRtt) {
   public ClientOptions {
+    controlPlaneHeaders = controlPlaneHeaders == null ? Map.of() : Map.copyOf(controlPlaneHeaders);
     heartbeatInterval = heartbeatInterval == null ? Duration.ofSeconds(5) : heartbeatInterval;
     connectTimeout = connectTimeout == null ? Duration.ofSeconds(15) : connectTimeout;
     operationTimeout = operationTimeout == null ? Duration.ofSeconds(30) : operationTimeout;
@@ -43,6 +47,7 @@ public record ClientOptions(
     private String apiUrl;
     private String configPath;
     private String context;
+    private Map<String, String> controlPlaneHeaders = Map.of();
     private String engine;
     private boolean heartbeat = true;
     private Duration heartbeatInterval = Duration.ofSeconds(5);
@@ -51,6 +56,7 @@ public record ClientOptions(
     private Boolean noToken;
     private String projectEndpoint;
     private boolean readConfigFile = true;
+    private String region;
     private boolean requireToken;
     private String token;
     private TlsOptions tls;
@@ -68,6 +74,11 @@ public record ClientOptions(
 
     public Builder context(String context) {
       this.context = context;
+      return this;
+    }
+
+    public Builder controlPlaneHeaders(Map<String, String> controlPlaneHeaders) {
+      this.controlPlaneHeaders = Map.copyOf(controlPlaneHeaders);
       return this;
     }
 
@@ -111,6 +122,11 @@ public record ClientOptions(
       return this;
     }
 
+    public Builder region(String region) {
+      this.region = region;
+      return this;
+    }
+
     public Builder requireToken(boolean requireToken) {
       this.requireToken = requireToken;
       return this;
@@ -136,6 +152,7 @@ public record ClientOptions(
           apiUrl,
           configPath,
           context,
+          controlPlaneHeaders,
           engine,
           heartbeat,
           heartbeatInterval,
@@ -144,6 +161,7 @@ public record ClientOptions(
           noToken,
           projectEndpoint,
           readConfigFile,
+          region,
           requireToken,
           token,
           tls,
