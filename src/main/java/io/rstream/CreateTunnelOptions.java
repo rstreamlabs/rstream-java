@@ -24,6 +24,7 @@ public record CreateTunnelOptions(
     String hostname,
     Integer port,
     Boolean upstreamTls,
+    Boolean allowCrossRegionRouting,
     TunnelAuth auth) {
   public CreateTunnelOptions {
     labels = labels == null ? Map.of() : Map.copyOf(labels);
@@ -61,6 +62,7 @@ public record CreateTunnelOptions(
     private String hostname;
     private Integer port;
     private Boolean upstreamTls;
+    private Boolean allowCrossRegionRouting;
     private TunnelAuth auth;
 
     public Builder name(String name) {
@@ -158,6 +160,11 @@ public record CreateTunnelOptions(
       return this;
     }
 
+    public Builder allowCrossRegionRouting(Boolean allowCrossRegionRouting) {
+      this.allowCrossRegionRouting = allowCrossRegionRouting;
+      return this;
+    }
+
     public Builder auth(TunnelAuth auth) {
       this.auth = auth;
       return this;
@@ -184,6 +191,7 @@ public record CreateTunnelOptions(
           hostname,
           port,
           upstreamTls,
+          allowCrossRegionRouting,
           auth);
     }
   }

@@ -312,6 +312,11 @@ public final class ControlChannel implements AutoCloseable {
   }
 
   private static TunnelProperties normalizeBytestreamOptions(CreateTunnelOptions options) {
+    if (options.allowCrossRegionRouting() != null && options.protocol() != TunnelProtocol.TCP) {
+      throw new RstreamException(
+          "Cross-region routing policy requires the TCP protocol.",
+          "ERR_RSTREAM_INVALID_TUNNEL_OPTIONS");
+    }
     if (options.httpVersion() == HttpVersion.H3) {
       throw new UnsupportedFeatureException(
           "HTTP/3 tunnels require datagram support, which rstream-java does not support.",
@@ -384,6 +389,7 @@ public final class ControlChannel implements AutoCloseable {
         .hostname(options.hostname())
         .port(options.port())
         .upstreamTls(options.upstreamTls())
+        .allowCrossRegionRouting(options.allowCrossRegionRouting())
         .build();
   }
 

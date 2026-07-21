@@ -93,6 +93,8 @@ SDKs:
 | `RSTREAM_MTLS_CERT_FILE` | Client certificate file for mTLS authentication. |
 | `RSTREAM_MTLS_KEY_FILE` | Client private key file for mTLS authentication. |
 | `RSTREAM_API_URL` | Control plane API URL for managed project discovery. |
+| `RSTREAM_REGION` | Authorized region to select for a managed project. |
+| `RSTREAM_CONTROL_PLANE_HEADERS` | Additional Control plane request headers encoded as a JSON object. |
 
 `RSTREAM_ENGINE_ADDRESS` is also accepted for compatibility with older local
 SDK workflows. Prefer `RSTREAM_ENGINE` in new code.

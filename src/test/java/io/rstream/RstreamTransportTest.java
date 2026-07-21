@@ -1,5 +1,6 @@
 package io.rstream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.net.InetAddress;
@@ -11,6 +12,15 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 final class RstreamTransportTest {
+  @Test
+  void redirectedEngineUsesItsHostnameForTls() {
+    var tls = TlsOptions.builder().serverName("owner.example.test").build();
+    var owner = EngineAddress.parse("owner.example.test:443");
+    var ingress = EngineAddress.parse("ingress.example.test:443");
+    assertThat(RstreamTransport.peerHost(owner, tls, true)).isEqualTo("owner.example.test");
+    assertThat(RstreamTransport.peerHost(ingress, tls, false)).isEqualTo("ingress.example.test");
+  }
+
   @Test
   void tlsHandshakeUsesConfiguredTimeout() throws Exception {
     var accepted = new CountDownLatch(1);

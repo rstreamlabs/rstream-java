@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -111,6 +112,59 @@ final class ConfigResolverTest {
     assertThat(resolved.tls().caFile()).isEqualTo("/tmp/ca.pem");
     assertThat(resolved.tls().serverName()).isEqualTo("engine.internal");
     assertThat(resolved.tls().insecureSkipVerify()).isTrue();
+  }
+
+  @Test
+  void regionResolutionFollowsOptionEnvironmentAndContextPrecedence() throws Exception {
+    var configPath =
+        config(
+            """
+            defaults:
+              context:
+                name: global
+            contexts:
+              - name: global
+                engine: project.global.example.test:443
+                projectEndpoint: project
+                region: eu-west-3
+            """);
+    var environment =
+        ConfigResolver.resolve(
+            ClientOptions.builder().configPath(configPath.toString()).noToken(true).build(),
+            Map.of("RSTREAM_REGION", "us-east-1"));
+    assertThat(environment.region()).isEqualTo("us-east-1");
+    assertThat(environment.engine()).isNull();
+    var option =
+        ConfigResolver.resolve(
+            ClientOptions.builder()
+                .configPath(configPath.toString())
+                .noToken(true)
+                .region("EU-CENTRAL-1")
+                .build(),
+            Map.of("RSTREAM_REGION", "us-east-1"));
+    assertThat(option.region()).isEqualTo("eu-central-1");
+    var context =
+        ConfigResolver.resolve(
+            ClientOptions.builder().configPath(configPath.toString()).noToken(true).build(),
+            Map.of());
+    assertThat(context.region()).isEqualTo("eu-west-3");
+  }
+
+  @Test
+  void regionResolutionRejectsExplicitEngineOverride() {
+    assertThatThrownBy(
+            () ->
+                ConfigResolver.resolve(
+                    ClientOptions.builder()
+                        .engine("engine.example.test:443")
+                        .noToken(true)
+                        .projectEndpoint("project")
+                        .readConfigFile(false)
+                        .region("eu-west-3")
+                        .build(),
+                    Map.of()))
+        .isInstanceOf(ConfigurationException.class)
+        .hasMessageContaining("explicit engine override");
   }
 
   @Test
@@ -315,6 +369,21 @@ final class ConfigResolverTest {
   }
 
   @Test
+  void jwtLikeTokenWithoutNumericExpiryIsAccepted() {
+    var token =
+        "x."
+            + Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString("{\"exp\":null}".getBytes(StandardCharsets.UTF_8))
+            + ".x";
+    var resolved =
+        ConfigResolver.resolve(
+            ClientOptions.builder().engine("engine.example.com:443").token(token).build(),
+            Map.of());
+    assertThat(resolved.token()).isEqualTo(token);
+  }
+
+  @Test
   void tokenAndMtlsCannotBeUsedTogether() {
     var options =
         ClientOptions.builder()
@@ -489,6 +558,66 @@ final class ConfigResolverTest {
     assertThatThrownBy(() -> ConfigResolver.resolve(options, Map.of()))
         .isInstanceOf(ConfigurationException.class)
         .hasMessageContaining("Authentication is required");
+  }
+
+  @Test
+  void controlPlaneHeadersMergeConfigEnvironmentAndOptions() throws Exception {
+    var configPath =
+        config(
+            """
+            defaults:
+              context:
+                name: local
+            environments:
+              - apiUrl: https://rstream.io
+                headers:
+                  X-Environment: config
+                  X-Shared: config
+            contexts:
+              - name: local
+                apiUrl: https://rstream.io
+                engine: engine.example.com:443
+            """);
+    var resolved =
+        ConfigResolver.resolve(
+            ClientOptions.builder()
+                .configPath(configPath.toString())
+                .controlPlaneHeaders(Map.of("X-Explicit", "option", "X-Shared", "option"))
+                .noToken(true)
+                .build(),
+            Map.of(
+                "RSTREAM_CONTROL_PLANE_HEADERS",
+                "{\"X-Runtime\":\"environment\",\"X-Shared\":\"environment\"}"));
+    assertThat(resolved.controlPlaneHeaders())
+        .containsExactlyInAnyOrderEntriesOf(
+            Map.of(
+                "X-Environment",
+                "config",
+                "X-Explicit",
+                "option",
+                "X-Runtime",
+                "environment",
+                "X-Shared",
+                "option"));
+  }
+
+  @Test
+  void invalidControlPlaneHeadersAreRejected() {
+    var options = ClientOptions.builder().readConfigFile(false).noToken(true).build();
+    for (var value :
+        List.of(
+            "not-json",
+            "[]",
+            "{\"X-Test\":1}",
+            "{\"Authorization\":\"secret\"}",
+            "{\"X-Forwarded-Host\":\"example.test\"}",
+            "{\"Bad Header\":\"value\"}",
+            "{\"X-Test\":\"first\",\"x-test\":\"second\"}")) {
+      assertThatThrownBy(
+              () -> ConfigResolver.resolve(options, Map.of("RSTREAM_CONTROL_PLANE_HEADERS", value)))
+          .isInstanceOf(ConfigurationException.class)
+          .hasMessageMatching("(?i).*header.*");
+    }
   }
 
   private Path config(String content) throws Exception {

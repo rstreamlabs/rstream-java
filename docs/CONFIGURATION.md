@@ -26,11 +26,19 @@ Set `RSTREAM_CONFIG` to use another file.
 | `RSTREAM_MTLS_CERT_FILE` | mTLS client certificate path. |
 | `RSTREAM_MTLS_KEY_FILE` | mTLS client key path. |
 | `RSTREAM_API_URL` | Control plane API URL for managed project discovery. |
+| `RSTREAM_REGION` | Authorized region to select for a managed project. |
+| `RSTREAM_CONTROL_PLANE_HEADERS` | Additional Control plane request headers encoded as a JSON object. |
 | `RSTREAM_TUNNEL_TRANSPORT` | `auto`, `tls`, or `quic`. Java maps `auto` to TLS and rejects explicit `quic`. |
 | `RSTREAM_QUIC_TRANSPORT` | Legacy selector. Prefer `RSTREAM_TUNNEL_TRANSPORT`. |
 
 The SDK also accepts `RSTREAM_ENGINE_ADDRESS` for compatibility with older local
 SDK workflows. Prefer `RSTREAM_ENGINE` in new code.
+
+Region selection requires a managed project endpoint and cannot be combined
+with an explicit engine override. Control plane headers may satisfy a separate
+deployment access layer. Authentication, forwarding, and hop-by-hop headers are
+reserved; malformed values and case-insensitive duplicates are rejected before
+network I/O.
 
 ## Config file
 
