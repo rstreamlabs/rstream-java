@@ -8,10 +8,10 @@
   <properties>
     <java.version>17</java.version>
     <maven.compiler.release>${java.version}</maven.compiler.release>
-    <micronaut.core.version>4.10.18</micronaut.core.version>
-    <micronaut.platform.version>4.10.10</micronaut.platform.version>
-    <micronaut.plugin.version>4.10.2</micronaut.plugin.version>
-    <micronaut.serde.version>2.16.2</micronaut.serde.version>
+    <micronaut.core.version>5.1.10</micronaut.core.version>
+    <micronaut.platform.version>5.0.6</micronaut.platform.version>
+    <micronaut.plugin.version>5.0.2</micronaut.plugin.version>
+    <micronaut.serde.version>3.1.0</micronaut.serde.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   <dependencyManagement>
@@ -49,7 +49,7 @@
       </plugin>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.14.1</version>
+        <version>3.15.0</version>
         <configuration>
           <annotationProcessorPaths>
             <path>
@@ -82,7 +82,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
-        <version>3.6.2</version>
+        <version>3.6.3</version>
         <configuration>
           <mainClass>io.rstream.examples.micronaut.WebhookReceiverApplication</mainClass>
         </configuration>
