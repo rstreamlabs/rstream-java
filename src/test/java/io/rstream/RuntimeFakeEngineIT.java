@@ -594,16 +594,24 @@ final class RuntimeFakeEngineIT {
                           .build()))
           .isInstanceOf(RstreamException.class)
           .hasMessageContaining("do not accept");
-      assertThatThrownBy(
-              () ->
-                  control.createTunnel(
-                      CreateTunnelOptions.builder()
-                          .protocol(TunnelProtocol.HTTP)
-                          .allowCrossRegionRouting(true)
-                          .build()))
-          .isInstanceOf(RstreamException.class)
-          .hasMessageContaining("requires the TCP protocol");
       assertThat(engine.openTunnelRequests).isEmpty();
+    }
+  }
+
+  @Test
+  void crossRegionRoutingPolicyIsSentForHTTP() throws Exception {
+    try (var engine = FakeEngine.start(temp);
+        var client = client(engine);
+        var control = client.connect()) {
+      control.createTunnel(
+          CreateTunnelOptions.builder()
+              .protocol(TunnelProtocol.HTTP)
+              .allowCrossRegionRouting(true)
+              .build());
+      var request = engine.openTunnelRequests.poll(2, TimeUnit.SECONDS);
+      assertThat(request).isNotNull();
+      assertThat(request.getTunnelProperties().getProtocol().getValue()).isEqualTo("http");
+      assertThat(request.getTunnelProperties().getAllowCrossRegionRouting().getValue()).isTrue();
     }
   }
 
