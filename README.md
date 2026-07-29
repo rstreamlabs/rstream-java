@@ -99,7 +99,7 @@ SDKs:
 `RSTREAM_ENGINE_ADDRESS` is also accepted for compatibility with older local
 SDK workflows. Prefer `RSTREAM_ENGINE` in new code.
 
-See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for supported YAML fields and
+See [docs/001-configuration.md](docs/001-configuration.md) for supported YAML fields and
 error behavior.
 
 ## Published HTTP tunnel
@@ -179,7 +179,7 @@ if (event.type().wireValue().equals("tunnel.created")) {
 `event.id()` is suitable for idempotency. Keep the raw request body unchanged
 when verifying the signature.
 
-See [docs/WEBHOOKS.md](docs/WEBHOOKS.md) for the payload shape and headers.
+See [docs/003-webhooks.md](docs/003-webhooks.md) for the payload shape and headers.
 
 ## Examples
 
@@ -209,7 +209,7 @@ Real-engine tests are opt-in:
 RSTREAM_JAVA_E2E=1 mvn verify
 ```
 
-See [docs/TESTING.md](docs/TESTING.md) for local-engine and managed-environment
+See [docs/004-testing.md](docs/004-testing.md) for local-engine and managed-environment
 test commands.
 
 ## Repository setup and release
@@ -219,7 +219,7 @@ secret for normal pull request checks. Release automation uses release-please an
 requires the maintainer-managed `RELEASE_PLEASE_TOKEN` secret plus the
 `CI_ALLOWED_ACTOR` repository variable.
 
-See [docs/GITHUB_SETUP.md](docs/GITHUB_SETUP.md) before creating or publishing
+See [docs/006-github-setup.md](docs/006-github-setup.md) before creating or publishing
 the repository.
 
 ## License
