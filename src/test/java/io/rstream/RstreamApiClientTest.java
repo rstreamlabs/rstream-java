@@ -39,7 +39,7 @@ final class RstreamApiClientTest {
               "endpoint":"project",
               "domain":"global.example.test",
               "enginePort":443,
-              "placement":"global",
+              "routing":"global",
               "regionalEndpoints":[
                 {
                   "provider":"aws",
