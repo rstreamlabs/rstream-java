@@ -384,6 +384,7 @@ public final class ControlChannel implements AutoCloseable {
         .hostname(options.hostname())
         .port(options.port())
         .upstreamTls(options.upstreamTls())
+        .allowCrossRegionRouting(options.allowCrossRegionRouting())
         .build();
   }
 

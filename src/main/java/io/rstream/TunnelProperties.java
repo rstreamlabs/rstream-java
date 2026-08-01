@@ -29,7 +29,8 @@ public record TunnelProperties(
     String hostname,
     Integer port,
     Boolean upstreamTls,
-    Boolean datagramGuaranteedDelivery) {
+    Boolean datagramGuaranteedDelivery,
+    Boolean allowCrossRegionRouting) {
   public TunnelProperties {
     labels = labels == null ? Map.of() : Map.copyOf(labels);
     geoIp = geoIp == null ? List.of() : List.copyOf(geoIp);
@@ -67,6 +68,7 @@ public record TunnelProperties(
     private Integer port;
     private Boolean upstreamTls;
     private Boolean datagramGuaranteedDelivery;
+    private Boolean allowCrossRegionRouting;
 
     public Builder id(String id) {
       this.id = id;
@@ -188,6 +190,11 @@ public record TunnelProperties(
       return this;
     }
 
+    public Builder allowCrossRegionRouting(Boolean allowCrossRegionRouting) {
+      this.allowCrossRegionRouting = allowCrossRegionRouting;
+      return this;
+    }
+
     public TunnelProperties build() {
       return new TunnelProperties(
           id,
@@ -213,7 +220,8 @@ public record TunnelProperties(
           hostname,
           port,
           upstreamTls,
-          datagramGuaranteedDelivery);
+          datagramGuaranteedDelivery,
+          allowCrossRegionRouting);
     }
   }
 }

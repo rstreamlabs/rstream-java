@@ -180,11 +180,25 @@ public final class RstreamClient implements AutoCloseable {
   private RstreamStream openProxyConnection(
       String engine, ResolvedClientOptions resolvedOptions, Rstream.ProxyConnReq request) {
     var token = request.hasSecret() ? request.getSecret().getValue() : null;
+    var proxyEngine = engine;
+    if (request.hasProxyEndpoint()) {
+      if (token == null || token.isBlank()) {
+        throw new ProtocolException(
+            "Engine did not provide credentials for the redirected stream.",
+            "ERR_RSTREAM_PROTOCOL");
+      }
+      proxyEngine = request.getProxyEndpoint().getValue().trim();
+      if (proxyEngine.isEmpty()) {
+        throw new ProtocolException(
+            "Engine returned an empty proxy endpoint.", "ERR_RSTREAM_PROTOCOL");
+      }
+    }
     var socket =
         openStreamSocket(
-            engine,
+            proxyEngine,
             resolvedOptions,
-            Protocol.proxyRequest(request.getStreamId(), token, resolvedOptions.zeroRtt()));
+            Protocol.proxyRequest(request.getStreamId(), token, resolvedOptions.zeroRtt()),
+            proxyEngine.equals(engine));
     if (!resolvedOptions.zeroRtt()) {
       try {
         var response = Protocol.readMessage(socket.getInputStream());
@@ -207,9 +221,22 @@ public final class RstreamClient implements AutoCloseable {
 
   private Socket openStreamSocket(
       String engine, ResolvedClientOptions resolvedOptions, Rstream.Message request) {
+    return openStreamSocket(engine, resolvedOptions, request, true);
+  }
+
+  private Socket openStreamSocket(
+      String engine,
+      ResolvedClientOptions resolvedOptions,
+      Rstream.Message request,
+      boolean useConfiguredServerName) {
     Socket socket = null;
     try {
-      socket = transport.dial(engine, resolvedOptions.tls(), resolvedOptions.connectTimeout());
+      socket =
+          transport.dial(
+              engine,
+              resolvedOptions.tls(),
+              resolvedOptions.connectTimeout(),
+              useConfiguredServerName);
       setReadTimeout(socket, resolvedOptions.operationTimeout());
       Protocol.writeMessage(socket.getOutputStream(), request);
       return socket;
@@ -233,13 +260,17 @@ public final class RstreamClient implements AutoCloseable {
   }
 
   private String resolveEngine(ResolvedClientOptions resolvedOptions) {
-    if (resolvedOptions.engine() != null) return resolvedOptions.engine();
+    if (resolvedOptions.region() == null && resolvedOptions.engine() != null)
+      return resolvedOptions.engine();
     if (resolvedOptions.projectEndpoint() == null) {
       throw new RstreamException(
           "Engine is required but not configured.", "ERR_RSTREAM_ENGINE_REQUIRED");
     }
-    return new RstreamApiClient(resolvedOptions.apiUrl(), resolvedOptions.token())
-        .resolveEngine(resolvedOptions.projectEndpoint());
+    return new RstreamApiClient(
+            resolvedOptions.apiUrl(),
+            resolvedOptions.token(),
+            resolvedOptions.controlPlaneHeaders())
+        .resolveEngine(resolvedOptions.projectEndpoint(), resolvedOptions.region());
   }
 
   private String resolveToken(ResolvedClientOptions resolvedOptions) {

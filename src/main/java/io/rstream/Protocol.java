@@ -141,6 +141,8 @@ final class Protocol {
       builder.setUpstreamTls(boolValue(properties.upstreamTls()));
     if (properties.datagramGuaranteedDelivery() != null)
       builder.setDatagramGuaranteedDelivery(boolValue(properties.datagramGuaranteedDelivery()));
+    if (properties.allowCrossRegionRouting() != null)
+      builder.setAllowCrossRegionRouting(boolValue(properties.allowCrossRegionRouting()));
     return builder.build();
   }
 
@@ -173,8 +175,9 @@ final class Protocol {
         wrapperInt(properties.hasPort(), properties.getPort()),
         wrapperBool(properties.hasUpstreamTls(), properties.getUpstreamTls()),
         wrapperBool(
-            properties.hasDatagramGuaranteedDelivery(),
-            properties.getDatagramGuaranteedDelivery()));
+            properties.hasDatagramGuaranteedDelivery(), properties.getDatagramGuaranteedDelivery()),
+        wrapperBool(
+            properties.hasAllowCrossRegionRouting(), properties.getAllowCrossRegionRouting()));
   }
 
   static ServerDetails serverDetailsFromPb(Rstream.ServerDetails details) {
