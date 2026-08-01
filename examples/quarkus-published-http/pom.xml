@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.rstream.examples</groupId>
   <artifactId>quarkus-published-http</artifactId>
-  <version>0.3.0</version>
+  <version>0.3.1-SNAPSHOT</version>
   <name>rstream Quarkus published HTTP example</name>
   <properties>
     <compiler-plugin.version>3.15.0</compiler-plugin.version>
