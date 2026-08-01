@@ -1,5 +1,8 @@
 package io.rstream;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -8,13 +11,35 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
 import org.snakeyaml.engine.v2.api.Load;
 import org.snakeyaml.engine.v2.api.LoadSettings;
 
 final class ConfigResolver {
   static final String DEFAULT_API_URL = "https://rstream.io";
+  private static final ObjectMapper JSON = new ObjectMapper();
+  private static final Pattern HEADER_NAME = Pattern.compile("^[!#$%&'*+.^_`|~0-9A-Za-z-]+$");
+  private static final Pattern REGION = Pattern.compile("^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$");
+  private static final Set<String> RESERVED_CONTROL_PLANE_HEADERS =
+      Set.of(
+          "authorization",
+          "connection",
+          "content-length",
+          "cookie",
+          "forwarded",
+          "host",
+          "keep-alive",
+          "proxy-authorization",
+          "proxy-connection",
+          "te",
+          "trailer",
+          "transfer-encoding",
+          "upgrade");
 
   private ConfigResolver() {}
 
@@ -49,18 +74,35 @@ final class ConfigResolver {
       throw new ConfigurationException(
           "Authentication is required but not configured.", "ERR_RSTREAM_AUTH_REQUIRED");
     }
+    var region = normalizeRegion(firstDefined(options.region(), env.region(), config.region()));
+    var explicitEngine = normalizeOptional(firstDefined(options.engine(), env.engine()));
+    var projectEndpoint =
+        normalizeOptional(firstDefined(options.projectEndpoint(), config.projectEndpoint()));
+    if (region != null && explicitEngine != null) {
+      throw new ConfigurationException(
+          "Region selection cannot be combined with an explicit engine override.",
+          "ERR_RSTREAM_REGION_ENGINE_CONFLICT");
+    }
+    if (region != null && projectEndpoint == null) {
+      throw new ConfigurationException(
+          "Managed project endpoint is required for region selection.",
+          "ERR_RSTREAM_PROJECT_ENDPOINT_REQUIRED");
+    }
     var engine =
-        normalizeEngine(
-            firstDefined(options.engine(), env.engine(), config.contextEngine(), config.engine()));
+        region == null
+            ? normalizeEngine(firstDefined(explicitEngine, config.contextEngine(), config.engine()))
+            : null;
     return new ResolvedClientOptions(
         firstDefined(options.apiUrl(), env.apiUrl(), config.apiUrl(), DEFAULT_API_URL),
+        config.controlPlaneHeaders(),
         engine,
         options.heartbeat(),
         options.heartbeatInterval(),
         options.connectTimeout(),
         options.operationTimeout(),
         options.noToken() != null ? options.noToken() : token == null && !hasClientCertificate(tls),
-        normalizeOptional(firstDefined(options.projectEndpoint(), config.projectEndpoint())),
+        projectEndpoint,
+        region,
         tls,
         token,
         "tls",
@@ -80,6 +122,8 @@ final class ConfigResolver {
     if (!options.readConfigFile()) {
       return new ResolvedConfig(
           firstDefined(options.apiUrl(), env.apiUrl(), DEFAULT_API_URL),
+          mergeControlPlaneHeaders(env.controlPlaneHeaders(), options.controlPlaneHeaders()),
+          null,
           null,
           null,
           null,
@@ -136,9 +180,14 @@ final class ConfigResolver {
       tunnelTransport = transportMode(environment == null ? null : environment.transport());
     return new ResolvedConfig(
         apiUrl,
+        mergeControlPlaneHeaders(
+            environment == null ? null : environment.headers(),
+            env.controlPlaneHeaders(),
+            options.controlPlaneHeaders()),
         context == null ? null : context.engine(),
         explicitEngine,
         context == null ? null : context.projectEndpoint(),
+        context == null ? null : context.region(),
         tls,
         token,
         tunnelTransport);
@@ -188,6 +237,7 @@ final class ConfigResolver {
         authConfig(value.get("auth")),
         normalizeOptional(string(value.get("engine"))),
         normalizeOptional(string(value.get("projectEndpoint"))),
+        normalizeOptional(string(value.get("region"))),
         transportConfig(value.get("transport")));
   }
 
@@ -195,6 +245,7 @@ final class ConfigResolver {
     return new EnvironmentConfig(
         normalizeApiUrl(string(value.get("apiUrl"))),
         authConfig(value.get("auth")),
+        controlPlaneHeaders(value.get("headers")),
         transportConfig(value.get("transport")));
   }
 
@@ -384,6 +435,99 @@ final class ConfigResolver {
         .build();
   }
 
+  @SafeVarargs
+  static Map<String, String> mergeControlPlaneHeaders(Map<String, String>... sources) {
+    var merged = new LinkedHashMap<String, String>();
+    for (var source : sources) merged.putAll(normalizeControlPlaneHeaders(source));
+    return Map.copyOf(merged);
+  }
+
+  static Map<String, String> normalizeControlPlaneHeaders(Map<String, String> headers) {
+    if (headers == null || headers.isEmpty()) return Map.of();
+    var normalized = new LinkedHashMap<String, String>();
+    for (var entry : headers.entrySet()) {
+      var rawName = entry.getKey();
+      var value = entry.getValue();
+      if (rawName == null || value == null) {
+        throw invalidControlPlaneHeaders();
+      }
+      var name = rawName.trim();
+      var lowerName = name.toLowerCase(Locale.ROOT);
+      if (!HEADER_NAME.matcher(name).matches()) {
+        throw new ConfigurationException(
+            "Invalid control plane header name '" + rawName + "'.", "ERR_RSTREAM_INVALID_CONFIG");
+      }
+      if (RESERVED_CONTROL_PLANE_HEADERS.contains(lowerName)
+          || lowerName.startsWith("x-forwarded-")) {
+        throw new ConfigurationException(
+            "Control plane header '" + rawName + "' is reserved.", "ERR_RSTREAM_INVALID_CONFIG");
+      }
+      if (value.indexOf('\r') >= 0 || value.indexOf('\n') >= 0) {
+        throw new ConfigurationException(
+            "Control plane header '" + rawName + "' has an invalid value.",
+            "ERR_RSTREAM_INVALID_CONFIG");
+      }
+      var canonicalName = canonicalHeaderName(name);
+      if (normalized.containsKey(canonicalName)) {
+        throw new ConfigurationException(
+            "Duplicate control plane header '" + canonicalName + "'.",
+            "ERR_RSTREAM_INVALID_CONFIG");
+      }
+      normalized.put(canonicalName, value);
+    }
+    return Map.copyOf(normalized);
+  }
+
+  private static Map<String, String> controlPlaneHeaders(Object value) {
+    if (value == null) return Map.of();
+    if (!(value instanceof Map<?, ?> values)) throw invalidControlPlaneHeaders();
+    var headers = new LinkedHashMap<String, String>();
+    for (var entry : values.entrySet()) {
+      if (!(entry.getKey() instanceof String name)
+          || !(entry.getValue() instanceof String headerValue)) {
+        throw invalidControlPlaneHeaders();
+      }
+      headers.put(name, headerValue);
+    }
+    return normalizeControlPlaneHeaders(headers);
+  }
+
+  private static Map<String, String> controlPlaneHeadersFromJson(String value) {
+    value = normalizeOptional(value);
+    if (value == null) return Map.of();
+    try {
+      JsonNode object = JSON.readTree(value);
+      if (object == null || !object.isObject()) throw invalidControlPlaneHeaders();
+      var headers = new LinkedHashMap<String, String>();
+      for (var field : object.properties()) {
+        if (!field.getValue().isTextual()) throw invalidControlPlaneHeaders();
+        headers.put(field.getKey(), field.getValue().textValue());
+      }
+      return normalizeControlPlaneHeaders(headers);
+    } catch (JsonProcessingException error) {
+      throw new ConfigurationException(
+          "RSTREAM_CONTROL_PLANE_HEADERS must be a JSON object of string values.",
+          "ERR_RSTREAM_INVALID_CONFIG",
+          error);
+    }
+  }
+
+  private static String canonicalHeaderName(String name) {
+    var canonical = new StringBuilder(name.length());
+    var upper = true;
+    for (var index = 0; index < name.length(); index++) {
+      var character = name.charAt(index);
+      canonical.append(upper ? Character.toUpperCase(character) : Character.toLowerCase(character));
+      upper = character == '-';
+    }
+    return canonical.toString();
+  }
+
+  private static ConfigurationException invalidControlPlaneHeaders() {
+    return new ConfigurationException(
+        "Control plane headers must be an object of string values.", "ERR_RSTREAM_INVALID_CONFIG");
+  }
+
   private static void validateTokenExpiry(String token) {
     var parts = token.split("\\.");
     if (parts.length < 2) return;
@@ -443,12 +587,23 @@ final class ConfigResolver {
     return normalized.isEmpty() ? null : normalized;
   }
 
+  private static String normalizeRegion(String value) {
+    var normalized = normalizeOptional(value);
+    if (normalized == null || normalized.equalsIgnoreCase("auto")) return null;
+    var region = normalized.toLowerCase(Locale.ROOT);
+    if (!REGION.matcher(region).matches()) {
+      throw new ConfigurationException(
+          "Region can only contain letters, numbers, dots, underscores, or hyphens.",
+          "ERR_RSTREAM_INVALID_REGION");
+    }
+    return region;
+  }
+
   private static Map<String, Object> map(Object value) {
     if (!(value instanceof Map<?, ?> input)) return null;
-    return input.entrySet().stream()
-        .collect(
-            java.util.stream.Collectors.toMap(
-                entry -> String.valueOf(entry.getKey()), Map.Entry::getValue));
+    var output = new LinkedHashMap<String, Object>();
+    input.forEach((key, item) -> output.put(String.valueOf(key), item));
+    return output;
   }
 
   private static List<Map<String, Object>> records(Object value) {
@@ -469,9 +624,11 @@ final class ConfigResolver {
       String apiUrl,
       String configPath,
       String context,
+      Map<String, String> controlPlaneHeaders,
       String engine,
       String mtlsCert,
       String mtlsKey,
+      String region,
       String token,
       String tunnelTransport,
       Boolean useQuic) {
@@ -480,11 +637,13 @@ final class ConfigResolver {
           normalizeApiUrl(environment.get("RSTREAM_API_URL")),
           normalizeOptional(environment.get("RSTREAM_CONFIG")),
           normalizeOptional(environment.get("RSTREAM_CONTEXT")),
+          controlPlaneHeadersFromJson(environment.get("RSTREAM_CONTROL_PLANE_HEADERS")),
           normalizeOptional(
               firstDefined(
                   environment.get("RSTREAM_ENGINE"), environment.get("RSTREAM_ENGINE_ADDRESS"))),
           normalizeOptional(environment.get("RSTREAM_MTLS_CERT_FILE")),
           normalizeOptional(environment.get("RSTREAM_MTLS_KEY_FILE")),
+          normalizeOptional(environment.get("RSTREAM_REGION")),
           normalizeOptional(environment.get("RSTREAM_AUTHENTICATION_TOKEN")),
           normalizeOptional(environment.get("RSTREAM_TUNNEL_TRANSPORT")),
           legacyQuic(environment.get("RSTREAM_QUIC_TRANSPORT")));
@@ -509,9 +668,11 @@ final class ConfigResolver {
       AuthConfig auth,
       String engine,
       String projectEndpoint,
+      String region,
       TransportConfig transport) {}
 
-  private record EnvironmentConfig(String apiUrl, AuthConfig auth, TransportConfig transport) {}
+  private record EnvironmentConfig(
+      String apiUrl, AuthConfig auth, Map<String, String> headers, TransportConfig transport) {}
 
   private record AuthConfig(TokenConfig token, MtlsConfig mtls) {}
 
@@ -528,9 +689,11 @@ final class ConfigResolver {
 
   private record ResolvedConfig(
       String apiUrl,
+      Map<String, String> controlPlaneHeaders,
       String contextEngine,
       String engine,
       String projectEndpoint,
+      String region,
       TlsOptions tls,
       String token,
       String tunnelTransport) {}

@@ -8,10 +8,14 @@ import javax.net.ssl.SSLSocket;
 
 final class RstreamTransport {
   SSLSocket dial(String engine, TlsOptions tls, Duration timeout) throws IOException {
+    return dial(engine, tls, timeout, true);
+  }
+
+  SSLSocket dial(String engine, TlsOptions tls, Duration timeout, boolean useConfiguredServerName)
+      throws IOException {
     var address = EngineAddress.parse(engine);
     var context = TlsSupport.context(tls);
-    var serverName = tls == null || tls.serverName() == null ? "" : tls.serverName().trim();
-    var peerHost = serverName.isEmpty() ? address.host() : serverName;
+    var peerHost = peerHost(address, tls, useConfiguredServerName);
     var rawSocket = new Socket();
     rawSocket.connect(
         new InetSocketAddress(address.host(), address.port()), timeoutMillis(timeout));
@@ -23,6 +27,11 @@ final class RstreamTransport {
     socket.startHandshake();
     socket.setSoTimeout(0);
     return socket;
+  }
+
+  static String peerHost(EngineAddress address, TlsOptions tls, boolean useConfiguredServerName) {
+    var serverName = tls == null || tls.serverName() == null ? "" : tls.serverName().trim();
+    return useConfiguredServerName && !serverName.isEmpty() ? serverName : address.host();
   }
 
   private static int timeoutMillis(Duration timeout) {

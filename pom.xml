@@ -33,10 +33,10 @@
     <java.version>17</java.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.release>${java.version}</maven.compiler.release>
-    <protobuf.version>4.33.1</protobuf.version>
-    <jackson.version>2.20.1</jackson.version>
-    <junit.version>5.14.1</junit.version>
-    <assertj.version>3.27.6</assertj.version>
+    <protobuf.version>4.35.1</protobuf.version>
+    <jackson.version>2.22.1</jackson.version>
+    <junit.version>6.1.2</junit.version>
+    <assertj.version>3.27.7</assertj.version>
   </properties>
   <dependencies>
     <dependency>
@@ -47,7 +47,7 @@
     <dependency>
       <groupId>org.snakeyaml</groupId>
       <artifactId>snakeyaml-engine</artifactId>
-      <version>2.10</version>
+      <version>3.0.1</version>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
@@ -78,7 +78,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.6.2</version>
+        <version>3.6.3</version>
         <executions>
           <execution>
             <id>enforce</id>
@@ -117,7 +117,7 @@
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
-        <version>3.1.0</version>
+        <version>3.8.0</version>
         <configuration>
           <java>
             <googleJavaFormat>
@@ -133,7 +133,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.14.1</version>
+        <version>3.15.0</version>
         <configuration>
           <showWarnings>true</showWarnings>
           <compilerArgs>
@@ -164,7 +164,7 @@
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-        <version>0.8.14</version>
+        <version>0.8.15</version>
         <configuration>
           <excludes>
             <exclude>rstream/io_rstrm/protobuf/**</exclude>
@@ -208,7 +208,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
-        <version>3.3.1</version>
+        <version>3.4.0</version>
         <executions>
           <execution>
             <id>attach-sources</id>
