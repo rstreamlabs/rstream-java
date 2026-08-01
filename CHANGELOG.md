@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.0](https://github.com/rstreamlabs/rstream-java/compare/rstream-v0.3.0...rstream-v0.4.0) (2026-08-01)
+
+
+### Features
+
+* **edge:** release region-aware Java tunnels ([7d8c5c2](https://github.com/rstreamlabs/rstream-java/commit/7d8c5c23421b94858e7d7093e24b531f354e3703))
+* **edge:** support region-aware tunnels ([faced07](https://github.com/rstreamlabs/rstream-java/commit/faced0708caa0dffb886f60b09fd593fa7227084))
+
+
+### Bug Fixes
+
+* **edge:** allow cross-region routing for every protocol ([f5ea65e](https://github.com/rstreamlabs/rstream-java/commit/f5ea65e2cef39e32829bb72a59e2d486bb4100b7))
+* **examples:** preserve the Java 17 baseline ([2a0a169](https://github.com/rstreamlabs/rstream-java/commit/2a0a1694f22d6a321bb4a8ce6fa1d0340f62c304))
+
+
+### Documentation
+
+* organize internal documentation ([a336528](https://github.com/rstreamlabs/rstream-java/commit/a3365280fb075143e0cb92bdaa403f3f5506db1a))
+
 ## [0.3.0](https://github.com/rstreamlabs/rstream-java/compare/rstream-v0.2.0...rstream-v0.3.0) (2026-07-18)
 
 
