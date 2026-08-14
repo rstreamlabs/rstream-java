@@ -5,19 +5,19 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Objects;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 /** A bytestream tunnel opened on the rstream engine. */
 public final class BytestreamTunnel implements AutoCloseable {
-  private static final Object CLOSED = new Object();
   private final ControlChannel control;
   private final TunnelProperties properties;
-  private final BlockingQueue<Object> streams = new LinkedBlockingQueue<>();
+  private final StreamQueue streams = new StreamQueue();
   private final ExecutorService executor;
   private volatile boolean closed;
 
@@ -47,15 +47,13 @@ public final class BytestreamTunnel implements AutoCloseable {
   }
 
   public RstreamStream accept() throws InterruptedException {
-    return accepted(streams.take());
+    return streams.take(null);
   }
 
   public RstreamStream accept(Duration timeout) throws InterruptedException {
     Objects.requireNonNull(timeout, "timeout");
     if (timeout.isNegative()) throw new IllegalArgumentException("timeout must not be negative");
-    var item = streams.poll(timeout.toMillis(), TimeUnit.MILLISECONDS);
-    if (item == null) return null;
-    return accepted(item);
+    return streams.take(timeout);
   }
 
   public CompletableFuture<RstreamStream> acceptAsync() {
@@ -105,19 +103,17 @@ public final class BytestreamTunnel implements AutoCloseable {
   }
 
   boolean deliver(RstreamStream stream) {
-    if (closed) {
-      stream.closeQuietly();
-      return false;
-    }
-    streams.offer(stream);
-    return true;
+    return streams.offer(stream);
   }
 
   void onClose(Throwable error) {
     if (closed) return;
     closed = true;
-    if (error != null) streams.offer(error);
-    streams.offer(CLOSED);
+    var closeError =
+        error instanceof RuntimeException runtimeError
+            ? runtimeError
+            : new RstreamException("Tunnel closed.", "ERR_RSTREAM_TUNNEL_CLOSED", error);
+    streams.close(closeError);
   }
 
   @Override
@@ -147,17 +143,6 @@ public final class BytestreamTunnel implements AutoCloseable {
     if (properties.id() != null) return "rstrm://" + properties.id() + " (unpublished)";
     throw new RstreamException(
         "Invalid tunnel properties: no host, name, or ID.", "ERR_RSTREAM_INVALID_TUNNEL");
-  }
-
-  private static RstreamStream accepted(Object item) {
-    if (item == CLOSED) {
-      throw new RstreamException("Tunnel closed.", "ERR_RSTREAM_TUNNEL_CLOSED");
-    }
-    if (item instanceof RuntimeException error) throw error;
-    if (item instanceof Throwable error) {
-      throw new RstreamException("Tunnel closed.", "ERR_RSTREAM_TUNNEL_CLOSED", error);
-    }
-    return (RstreamStream) item;
   }
 
   private static String publishedHost(TunnelProperties properties) {
@@ -220,6 +205,68 @@ public final class BytestreamTunnel implements AutoCloseable {
     try {
       if (!socket.isClosed() && !socket.isOutputShutdown()) socket.shutdownOutput();
     } catch (IOException ignored) {
+    }
+  }
+
+  private static final class StreamQueue {
+    private final ReentrantLock lock = new ReentrantLock();
+    private final Condition available = lock.newCondition();
+    private final ArrayDeque<RstreamStream> queued = new ArrayDeque<>();
+    private RuntimeException closeError;
+
+    RstreamStream take(Duration timeout) throws InterruptedException {
+      var remaining = timeout == null ? 0 : timeoutNanos(timeout);
+      lock.lockInterruptibly();
+      try {
+        while (queued.isEmpty()) {
+          if (closeError != null) throw closeError;
+          if (timeout == null) available.await();
+          else if (remaining <= 0) return null;
+          else remaining = available.awaitNanos(remaining);
+        }
+        return queued.removeFirst();
+      } finally {
+        lock.unlock();
+      }
+    }
+
+    boolean offer(RstreamStream stream) {
+      var accepted = false;
+      lock.lock();
+      try {
+        if (closeError == null) {
+          queued.addLast(stream);
+          available.signal();
+          accepted = true;
+        }
+      } finally {
+        lock.unlock();
+      }
+      if (!accepted) stream.closeQuietly();
+      return accepted;
+    }
+
+    void close(RuntimeException error) {
+      ArrayList<RstreamStream> abandoned;
+      lock.lock();
+      try {
+        if (closeError != null) return;
+        closeError = error;
+        abandoned = new ArrayList<>(queued);
+        queued.clear();
+        available.signalAll();
+      } finally {
+        lock.unlock();
+      }
+      abandoned.forEach(RstreamStream::closeQuietly);
+    }
+
+    private static long timeoutNanos(Duration timeout) {
+      try {
+        return timeout.toNanos();
+      } catch (ArithmeticException ignored) {
+        return Long.MAX_VALUE;
+      }
     }
   }
 }

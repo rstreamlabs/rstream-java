@@ -21,10 +21,16 @@ final class Protocol {
   private Protocol() {}
 
   static Rstream.Message openControlChannelRequest(String token) {
-    return Rstream.Message.newBuilder()
-        .setOpenControlChannelReq(
-            Rstream.OpenControlChannelReq.newBuilder().setClientDetails(clientDetails(token)))
-        .build();
+    return openControlChannelRequest(token, null);
+  }
+
+  static Rstream.Message openControlChannelRequest(String token, Integer heartbeatIntervalMs) {
+    var request = Rstream.OpenControlChannelReq.newBuilder().setClientDetails(clientDetails(token));
+    if (heartbeatIntervalMs != null) {
+      request.setLiveness(
+          Rstream.ControlChannelLiveness.newBuilder().setHeartbeatIntervalMs(heartbeatIntervalMs));
+    }
+    return Rstream.Message.newBuilder().setOpenControlChannelReq(request).build();
   }
 
   static Rstream.Message closeControlChannelRequest() {
@@ -76,6 +82,12 @@ final class Protocol {
 
   static Rstream.Message heartbeat() {
     return Rstream.Message.newBuilder().setHeartbeat(Rstream.Heartbeat.newBuilder()).build();
+  }
+
+  static Rstream.Message heartbeat(long sequence) {
+    return Rstream.Message.newBuilder()
+        .setHeartbeat(Rstream.Heartbeat.newBuilder().setSequence(sequence))
+        .build();
   }
 
   static Rstream.ClientDetails clientDetails(String token) {

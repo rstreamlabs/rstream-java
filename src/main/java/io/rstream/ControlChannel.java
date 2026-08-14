@@ -2,11 +2,19 @@ package io.rstream;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -15,8 +23,11 @@ import rstream.io_rstrm.protobuf.Rstream;
 
 /** Open control channel used to create and manage tunnels. */
 public final class ControlChannel implements AutoCloseable {
+  private static final int MAX_ACTIVE_PROXY_CONNECTIONS = 256;
+  private static final int MAX_QUEUED_PROXY_CONNECTIONS = 1_024;
   private final Socket socket;
   private final ResolvedClientOptions options;
+  private final Duration heartbeatTimeout;
   private final ServerDetails serverDetails;
   private final ExecutorService executor;
   private final ScheduledExecutorService scheduler;
@@ -27,20 +38,28 @@ public final class ControlChannel implements AutoCloseable {
   private final Map<String, BytestreamTunnel> tunnels = new ConcurrentHashMap<>();
   private final Object writeLock = new Object();
   private final Object closeLock = new Object();
+  private final Object proxyLock = new Object();
+  private final ArrayDeque<Rstream.ProxyConnReq> proxyQueue = new ArrayDeque<>();
+  private final Set<FutureTask<Void>> proxyTasks = new HashSet<>();
   private final CompletableFuture<Void> done = new CompletableFuture<>();
-  private ScheduledFuture<?> heartbeat;
+  private volatile ScheduledFuture<?> heartbeat;
+  private volatile ScheduledFuture<?> livenessTimeout;
+  private volatile long heartbeatSequence;
+  private volatile long heartbeatAcknowledgement;
   private volatile boolean closing;
   private volatile boolean closed;
 
   ControlChannel(
       Socket socket,
       ResolvedClientOptions options,
+      Duration heartbeatTimeout,
       ServerDetails serverDetails,
       ExecutorService executor,
       ScheduledExecutorService scheduler,
       Function<Rstream.ProxyConnReq, RstreamStream> openProxyConnection) {
     this.socket = socket;
     this.options = options;
+    this.heartbeatTimeout = heartbeatTimeout;
     this.serverDetails = serverDetails;
     this.executor = executor;
     this.scheduler = scheduler;
@@ -82,13 +101,15 @@ public final class ControlChannel implements AutoCloseable {
   }
 
   public BytestreamTunnel createBytestreamTunnel(CreateTunnelOptions options) {
-    if (closed || closing) {
-      throw new RstreamException("Control channel is closed.", "ERR_RSTREAM_CONTROL_CLOSED");
-    }
     var properties = normalizeBytestreamOptions(options);
     var requestId = UUID.randomUUID().toString();
     var pending = new CompletableFuture<BytestreamTunnel>();
-    pendingTunnels.put(requestId, pending);
+    synchronized (closeLock) {
+      if (closed || closing) {
+        throw new RstreamException("Control channel is closed.", "ERR_RSTREAM_CONTROL_CLOSED");
+      }
+      pendingTunnels.put(requestId, pending);
+    }
     var timeout =
         operationTimeout(
             pending,
@@ -109,8 +130,8 @@ public final class ControlChannel implements AutoCloseable {
     if (tunnel == null || tunnel.closed()) return;
     CompletableFuture<Void> pending;
     var owner = false;
-    synchronized (tunnel) {
-      if (tunnel.closed()) return;
+    synchronized (closeLock) {
+      if (closed || closing || tunnel.closed()) return;
       pending = pendingCloses.get(tunnelId);
       if (pending == null) {
         pending = new CompletableFuture<>();
@@ -144,9 +165,11 @@ public final class ControlChannel implements AutoCloseable {
   public void close() {
     if (closed) return;
     ScheduledFuture<?> closeTimeout = null;
+    var sendClose = false;
     synchronized (closeLock) {
       if (!closing && !closed) {
         closing = true;
+        sendClose = true;
         closeTimeout =
             scheduler.schedule(
                 () ->
@@ -156,11 +179,13 @@ public final class ControlChannel implements AutoCloseable {
                             null)),
                 options.operationTimeout().toMillis(),
                 TimeUnit.MILLISECONDS);
-        try {
-          write(Protocol.closeControlChannelRequest());
-        } catch (RuntimeException error) {
-          finish(error);
-        }
+      }
+    }
+    if (sendClose) {
+      try {
+        write(Protocol.closeControlChannelRequest());
+      } catch (RuntimeException error) {
+        finish(error);
       }
     }
     try {
@@ -175,9 +200,19 @@ public final class ControlChannel implements AutoCloseable {
   }
 
   void finish(Throwable error) {
-    if (closed) return;
-    closed = true;
+    synchronized (closeLock) {
+      if (closed) return;
+      closed = true;
+    }
     if (heartbeat != null) heartbeat.cancel(true);
+    if (livenessTimeout != null) livenessTimeout.cancel(false);
+    Set<FutureTask<Void>> tasks;
+    synchronized (proxyLock) {
+      tasks = Set.copyOf(proxyTasks);
+      proxyTasks.clear();
+      proxyQueue.clear();
+    }
+    tasks.forEach(task -> task.cancel(true));
     try {
       socket.close();
     } catch (IOException ignored) {
@@ -197,26 +232,19 @@ public final class ControlChannel implements AutoCloseable {
   }
 
   private void start() {
-    executor.submit(this::readLoop);
     if (options.heartbeat() && options.heartbeatInterval().toMillis() > 0) {
-      heartbeat =
-          scheduler.scheduleAtFixedRate(
-              () -> {
-                try {
-                  if (!closed) write(Protocol.heartbeat());
-                } catch (RuntimeException error) {
-                  finish(error);
-                }
-              },
-              options.heartbeatInterval().toMillis(),
-              options.heartbeatInterval().toMillis(),
-              TimeUnit.MILLISECONDS);
+      scheduleHeartbeat(heartbeatTimeout.isZero() ? options.heartbeatInterval().toMillis() : 0);
     }
+    if (!heartbeatTimeout.isZero()) armLivenessTimeout();
+    executor.submit(this::readLoop);
   }
 
   private void readLoop() {
     try {
-      while (!closed) handleMessage(Protocol.readMessage(socket.getInputStream()));
+      while (!closed) {
+        handleMessage(Protocol.readMessage(socket.getInputStream()));
+        if (!closed && !heartbeatTimeout.isZero()) armLivenessTimeout();
+      }
     } catch (Throwable error) {
       if (!closed) finish(error);
     }
@@ -232,7 +260,11 @@ public final class ControlChannel implements AutoCloseable {
       return;
     }
     if (message.hasProxyConnReq()) {
-      handleProxyConnectionRequest(message.getProxyConnReq());
+      dispatchProxyConnectionRequest(message.getProxyConnReq());
+      return;
+    }
+    if (message.hasHeartbeat()) {
+      handleHeartbeat(message.getHeartbeat());
       return;
     }
     if (message.hasCloseControlChannelRsp()) finish(null);
@@ -252,8 +284,17 @@ public final class ControlChannel implements AutoCloseable {
     }
     var properties = Protocol.tunnelPropertiesFromPb(response.getTunnelProperties());
     var tunnel = new BytestreamTunnel(this, properties, executor);
-    tunnels.put(tunnel.id(), tunnel);
-    pending.complete(tunnel);
+    synchronized (closeLock) {
+      if (closed) {
+        tunnel.onClose(
+            new RstreamException("Control channel is closed.", "ERR_RSTREAM_CONTROL_CLOSED"));
+        pending.completeExceptionally(
+            new RstreamException("Control channel is closed.", "ERR_RSTREAM_CONTROL_CLOSED"));
+        return;
+      }
+      tunnels.put(tunnel.id(), tunnel);
+      pending.complete(tunnel);
+    }
   }
 
   private void handleCloseTunnelResponse(String tunnelId) {
@@ -261,6 +302,81 @@ public final class ControlChannel implements AutoCloseable {
     if (tunnel != null) tunnel.onClose(null);
     var pending = pendingCloses.remove(tunnelId);
     if (pending != null) pending.complete(null);
+  }
+
+  private void handleHeartbeat(Rstream.Heartbeat message) {
+    if (!options.heartbeat()) throw heartbeatProtocolError();
+    if (heartbeatTimeout.isZero()) {
+      if (message.getSequence() != 0 || message.getAcknowledgement() != 0)
+        throw heartbeatProtocolError();
+      return;
+    }
+    if (message.getSequence() != 0
+        || message.getAcknowledgement() == 0
+        || Long.compareUnsigned(message.getAcknowledgement(), heartbeatAcknowledgement) <= 0
+        || Long.compareUnsigned(message.getAcknowledgement(), heartbeatSequence) > 0) {
+      throw heartbeatProtocolError();
+    }
+    heartbeatAcknowledgement = message.getAcknowledgement();
+  }
+
+  private void dispatchProxyConnectionRequest(Rstream.ProxyConnReq request) {
+    FutureTask<Void> task = null;
+    var overloaded = false;
+    synchronized (proxyLock) {
+      if (closed) return;
+      if (proxyTasks.size() >= MAX_ACTIVE_PROXY_CONNECTIONS) {
+        if (proxyQueue.size() >= MAX_QUEUED_PROXY_CONNECTIONS) overloaded = true;
+        else proxyQueue.addLast(request);
+      } else {
+        task =
+            new FutureTask<>(() -> handleProxyConnectionRequest(request), null) {
+              @Override
+              protected void done() {
+                proxyTaskDone(this);
+              }
+            };
+        proxyTasks.add(task);
+      }
+    }
+    if (overloaded) {
+      finish(
+          new RstreamException(
+              "Control channel proxy queue is full.", "ERR_RSTREAM_CONTROL_OVERLOAD"));
+      return;
+    }
+    if (task == null) return;
+    try {
+      executor.execute(task);
+    } catch (RejectedExecutionException error) {
+      synchronized (proxyLock) {
+        proxyTasks.remove(task);
+      }
+      if (!closed) finish(error);
+    }
+  }
+
+  private void proxyTaskDone(FutureTask<Void> task) {
+    Throwable failure = null;
+    try {
+      task.get();
+    } catch (CancellationException ignored) {
+    } catch (InterruptedException error) {
+      Thread.currentThread().interrupt();
+      failure = error;
+    } catch (ExecutionException error) {
+      failure = error.getCause();
+    }
+    Rstream.ProxyConnReq next = null;
+    synchronized (proxyLock) {
+      proxyTasks.remove(task);
+      if (!closed) next = proxyQueue.pollFirst();
+    }
+    if (failure != null && !closed) {
+      finish(failure);
+      return;
+    }
+    if (next != null) dispatchProxyConnectionRequest(next);
   }
 
   private void handleProxyConnectionRequest(Rstream.ProxyConnReq request) {
@@ -273,6 +389,10 @@ public final class ControlChannel implements AutoCloseable {
     }
     try {
       var stream = openProxyConnection.apply(request);
+      if (closed) {
+        stream.closeQuietly();
+        return;
+      }
       if (!tunnel.deliver(stream)) {
         write(
             Protocol.proxyConnectionResponse(
@@ -288,13 +408,71 @@ public final class ControlChannel implements AutoCloseable {
   }
 
   private void write(Rstream.Message message) {
+    if (closed) {
+      throw new RstreamException("Control channel is closed.", "ERR_RSTREAM_CONTROL_CLOSED");
+    }
     synchronized (writeLock) {
+      if (closed) {
+        throw new RstreamException("Control channel is closed.", "ERR_RSTREAM_CONTROL_CLOSED");
+      }
       try {
         Protocol.writeMessage(socket.getOutputStream(), message);
       } catch (IOException error) {
         throw new RstreamException("Failed to write protocol message.", "ERR_RSTREAM_WRITE", error);
       }
     }
+  }
+
+  private void scheduleHeartbeat(long delayMillis) {
+    synchronized (closeLock) {
+      if (closed) return;
+      heartbeat =
+          scheduler.schedule(
+              () -> {
+                try {
+                  executor.execute(this::sendHeartbeat);
+                } catch (RejectedExecutionException error) {
+                  if (!closed) finish(error);
+                }
+              },
+              delayMillis,
+              TimeUnit.MILLISECONDS);
+    }
+  }
+
+  private void sendHeartbeat() {
+    try {
+      if (closed) return;
+      if (heartbeatSequence == Long.MAX_VALUE) {
+        throw new ProtocolException("Heartbeat sequence exhausted.", "ERR_RSTREAM_PROTOCOL");
+      }
+      heartbeatSequence++;
+      write(
+          heartbeatTimeout.isZero() ? Protocol.heartbeat() : Protocol.heartbeat(heartbeatSequence));
+      scheduleHeartbeat(options.heartbeatInterval().toMillis());
+    } catch (RuntimeException error) {
+      if (!closed) finish(error);
+    }
+  }
+
+  private void armLivenessTimeout() {
+    synchronized (closeLock) {
+      if (closed) return;
+      if (livenessTimeout != null) livenessTimeout.cancel(false);
+      livenessTimeout =
+          scheduler.schedule(
+              () ->
+                  finish(
+                      new RstreamException(
+                          "Control channel liveness timeout expired.",
+                          "ERR_RSTREAM_CONTROL_LIVENESS")),
+              heartbeatTimeout.toMillis(),
+              TimeUnit.MILLISECONDS);
+    }
+  }
+
+  private static ProtocolException heartbeatProtocolError() {
+    return new ProtocolException("Engine returned an invalid heartbeat.", "ERR_RSTREAM_PROTOCOL");
   }
 
   private <T> ScheduledFuture<?> operationTimeout(

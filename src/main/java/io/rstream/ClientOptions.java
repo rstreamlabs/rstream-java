@@ -33,6 +33,13 @@ public record ClientOptions(
     if (operationTimeout.isZero() || operationTimeout.isNegative()) {
       throw new IllegalArgumentException("operationTimeout must be positive");
     }
+    if (heartbeat
+        && (heartbeatInterval.compareTo(Duration.ofSeconds(1)) < 0
+            || heartbeatInterval.compareTo(Duration.ofMinutes(5)) > 0
+            || heartbeatInterval.toNanosPart() % 1_000_000 != 0)) {
+      throw new IllegalArgumentException(
+          "heartbeatInterval must be between 1 second and 5 minutes with millisecond precision");
+    }
   }
 
   public static Builder builder() {

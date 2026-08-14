@@ -18,11 +18,13 @@ import rstream.io_rstrm.protobuf.Rstream;
 
 /** Main rstream Java SDK client. */
 public final class RstreamClient implements AutoCloseable {
+  private static final int MAX_HEARTBEAT_TIMEOUT_MILLIS = 900_000;
   private final ClientOptions options;
   private final RstreamTransport transport;
   private final ExecutorService executor;
   private final ScheduledExecutorService scheduler;
   private final Set<ControlChannel> controls = ConcurrentHashMap.newKeySet();
+  private final Object lifecycleLock = new Object();
   private volatile ResolvedClientOptions resolved;
   private volatile boolean closed;
 
@@ -51,7 +53,11 @@ public final class RstreamClient implements AutoCloseable {
     try {
       socket = transport.dial(engine, resolvedOptions.tls(), resolvedOptions.connectTimeout());
       setReadTimeout(socket, resolvedOptions.operationTimeout());
-      Protocol.writeMessage(socket.getOutputStream(), Protocol.openControlChannelRequest(token));
+      var heartbeatIntervalMillis = Math.toIntExact(resolvedOptions.heartbeatInterval().toMillis());
+      Protocol.writeMessage(
+          socket.getOutputStream(),
+          Protocol.openControlChannelRequest(
+              token, resolvedOptions.heartbeat() ? heartbeatIntervalMillis : null));
       var response = Protocol.readMessage(socket.getInputStream());
       if (!response.hasOpenControlChannelRsp()) {
         throw new ProtocolException(
@@ -66,15 +72,21 @@ public final class RstreamClient implements AutoCloseable {
             "Engine returned an empty OpenControlChannelRsp.", "ERR_RSTREAM_PROTOCOL");
       }
       setReadTimeout(socket, Duration.ZERO);
-      var control =
-          new ControlChannel(
-              socket,
-              resolvedOptions,
-              Protocol.serverDetailsFromPb(payload.getOk().getServerDetails()),
-              executor,
-              scheduler,
-              request -> openProxyConnection(engine, resolvedOptions, request));
-      controls.add(control);
+      ControlChannel control;
+      synchronized (lifecycleLock) {
+        ensureOpen();
+        control =
+            new ControlChannel(
+                socket,
+                resolvedOptions,
+                negotiatedHeartbeatTimeout(
+                    resolvedOptions.heartbeat(), heartbeatIntervalMillis, payload.getOk()),
+                Protocol.serverDetailsFromPb(payload.getOk().getServerDetails()),
+                executor,
+                scheduler,
+                request -> openProxyConnection(engine, resolvedOptions, request));
+        controls.add(control);
+      }
       control.done().whenComplete((ignored, error) -> controls.remove(control));
       return control;
     } catch (SocketTimeoutException error) {
@@ -93,6 +105,20 @@ public final class RstreamClient implements AutoCloseable {
   public CompletableFuture<ControlChannel> connectAsync() {
     if (closed) return CompletableFuture.failedFuture(closedError());
     return CompletableFuture.supplyAsync(this::connect, executor);
+  }
+
+  private static Duration negotiatedHeartbeatTimeout(
+      boolean heartbeat, int heartbeatIntervalMillis, Rstream.OpenControlChannelRsp.Ok response) {
+    if (!response.hasLiveness()) return Duration.ZERO;
+    var liveness = response.getLiveness();
+    if (!heartbeat
+        || liveness.getHeartbeatIntervalMs() != heartbeatIntervalMillis
+        || liveness.getHeartbeatTimeoutMs() < liveness.getHeartbeatIntervalMs()
+        || liveness.getHeartbeatTimeoutMs() > MAX_HEARTBEAT_TIMEOUT_MILLIS) {
+      throw new ProtocolException(
+          "Engine returned an invalid liveness policy.", "ERR_RSTREAM_PROTOCOL");
+    }
+    return Duration.ofMillis(liveness.getHeartbeatTimeoutMs());
   }
 
   public RstreamStream dial(String tunnel) {
@@ -148,11 +174,15 @@ public final class RstreamClient implements AutoCloseable {
 
   @Override
   public void close() {
-    if (closed) return;
-    closed = true;
+    Set<ControlChannel> openControls;
+    synchronized (lifecycleLock) {
+      if (closed) return;
+      closed = true;
+      openControls = Set.copyOf(controls);
+    }
     RuntimeException failure = null;
     try {
-      for (var control : controls) {
+      for (var control : openControls) {
         try {
           control.close();
         } catch (RuntimeException error) {

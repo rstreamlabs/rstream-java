@@ -7,6 +7,8 @@ import com.google.protobuf.StringValue;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.KeyStore;
@@ -16,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -65,6 +68,109 @@ final class RuntimeFakeEngineIT {
     }
   }
 
+  @Test
+  void negotiatedLivenessToleratesDelayedAcknowledgement() throws Exception {
+    try (var engine = FakeEngine.start(temp);
+        var client = heartbeatClient(engine, Duration.ofSeconds(1))) {
+      engine.configureLiveness(1_000, 1_000, true, 800, 1, 0);
+      try (var control = client.connect()) {
+        var heartbeat = engine.heartbeats.poll(2, TimeUnit.SECONDS);
+        assertThat(heartbeat).isNotNull();
+        assertThat(engine.openControlRequests.peek().getLiveness().getHeartbeatIntervalMs())
+            .isEqualTo(1_000);
+        assertThat(heartbeat.getSequence()).isEqualTo(1);
+        Thread.sleep(1_100);
+        assertThat(control.closed()).isFalse();
+      }
+    }
+  }
+
+  @Test
+  void negotiatedLivenessExpiresWhenAcknowledgementsStop() throws Exception {
+    try (var engine = FakeEngine.start(temp);
+        var client = heartbeatClient(engine, Duration.ofSeconds(1))) {
+      engine.configureLiveness(1_000, 1_000, false, 0, 1, 0);
+      var control = client.connect();
+      assertThat(failureCode(control, 2, TimeUnit.SECONDS))
+          .isEqualTo("ERR_RSTREAM_CONTROL_LIVENESS");
+    }
+  }
+
+  @Test
+  void negotiatedLivenessRejectsFutureAcknowledgement() throws Exception {
+    try (var engine = FakeEngine.start(temp);
+        var client = heartbeatClient(engine, Duration.ofSeconds(1))) {
+      engine.configureLiveness(1_000, 60_000, true, 0, 1, 1);
+      var control = client.connect();
+      assertThat(failureCode(control, 2, TimeUnit.SECONDS)).isEqualTo("ERR_RSTREAM_PROTOCOL");
+    }
+  }
+
+  @Test
+  void negotiatedLivenessRejectsReplayedAcknowledgement() throws Exception {
+    try (var engine = FakeEngine.start(temp);
+        var client = heartbeatClient(engine, Duration.ofSeconds(1))) {
+      engine.configureLiveness(1_000, 60_000, true, 0, 1, 0);
+      engine.duplicateHeartbeatAcknowledgement = true;
+      var control = client.connect();
+      assertThat(failureCode(control, 2, TimeUnit.SECONDS)).isEqualTo("ERR_RSTREAM_PROTOCOL");
+    }
+  }
+
+  @Test
+  void negotiatedLivenessToleratesDroppedHeartbeat() throws Exception {
+    try (var engine = FakeEngine.start(temp);
+        var client = heartbeatClient(engine, Duration.ofSeconds(1))) {
+      engine.configureLiveness(1_000, 2_500, true, 0, 2, 0);
+      try (var control = client.connect()) {
+        Thread.sleep(3_200);
+        assertThat(control.closed()).isFalse();
+        assertThat(engine.heartbeats.size()).isGreaterThanOrEqualTo(4);
+      }
+    }
+  }
+
+  @Test
+  void connectRejectsInvalidServerLivenessPolicies() throws Exception {
+    for (var policy :
+        List.of(new int[] {2_000, 60_000}, new int[] {1_000, 999}, new int[] {1_000, 900_001})) {
+      try (var engine = FakeEngine.start(temp);
+          var client = heartbeatClient(engine, Duration.ofSeconds(1))) {
+        engine.configureLiveness(policy[0], policy[1], false, 0, 1, 0);
+        assertThatThrownBy(client::connect).isInstanceOf(ProtocolException.class);
+      }
+    }
+    try (var engine = FakeEngine.start(temp);
+        var client = client(engine)) {
+      engine.configureLiveness(1_000, 60_000, false, 0, 1, 0);
+      assertThatThrownBy(client::connect).isInstanceOf(ProtocolException.class);
+    }
+  }
+
+  @Test
+  void livenessIsNotStarvedByStalledProxyTlsHandshake() throws Exception {
+    try (var blackhole = new ServerSocket(0, 50, InetAddress.getLoopbackAddress());
+        var engine = FakeEngine.start(temp);
+        var client = heartbeatClient(engine, Duration.ofMillis(500))) {
+      engine.configureLiveness(1_000, 1_500, true, 0, 1, 0);
+      try (var control = client.connect()) {
+        var tunnel = control.createTunnel();
+        var accepted = CompletableFuture.supplyAsync(() -> accept(blackhole));
+        engine.sendProxyConnection(
+            tunnel.id(),
+            "blocked-stream",
+            "stream-secret",
+            "127.0.0.1:" + blackhole.getLocalPort());
+        try (var blackholeSocket = accepted.get(1, TimeUnit.SECONDS)) {
+          assertThat(blackholeSocket.isClosed()).isFalse();
+          Thread.sleep(1_900);
+          assertThat(control.closed()).isFalse();
+          assertThat(control.createTunnel().id()).isNotBlank();
+        }
+      }
+    }
+  }
+
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
   void dialPrivateBytestreamByNameAndId(boolean zeroRtt) throws Exception {
@@ -107,6 +213,39 @@ final class RuntimeFakeEngineIT {
         assertThat(proxyResponse.getStreamId()).isEqualTo("stream_1");
         assertThat(proxyResponse.hasError()).isFalse();
       }
+    }
+  }
+
+  @Test
+  void controlCloseReleasesAllConcurrentAcceptWaiters() throws Exception {
+    try (var engine = FakeEngine.start(temp);
+        var client = client(engine)) {
+      var control = client.connect();
+      var tunnel = control.createTunnel();
+      var accepts = IntStream.range(0, 8).mapToObj(ignored -> tunnel.acceptAsync()).toList();
+      Thread.sleep(50);
+
+      control.close();
+
+      assertThat(accepts).allMatch(CompletableFuture::isDone);
+      assertThat(accepts).allMatch(CompletableFuture::isCompletedExceptionally);
+    }
+  }
+
+  @Test
+  void controlCloseClosesUnacceptedProxyStream() throws Exception {
+    try (var engine = FakeEngine.start(temp);
+        var client = client(engine)) {
+      var control = client.connect();
+      var tunnel = control.createTunnel();
+      engine.sendProxyConnection(tunnel.id(), "unaccepted-stream", "stream-secret");
+      assertThat(engine.proxyConnectionResponses.poll(2, TimeUnit.SECONDS)).isNotNull();
+      var proxyClosed = engine.proxyClosures.poll(2, TimeUnit.SECONDS);
+      assertThat(proxyClosed).isNotNull();
+
+      control.close();
+
+      proxyClosed.get(1, TimeUnit.SECONDS);
     }
   }
 
@@ -319,6 +458,24 @@ final class RuntimeFakeEngineIT {
       assertThat(control.closed()).isTrue();
       assertThat(control.done()).isCompleted();
       client.close();
+    }
+  }
+
+  @Test
+  void clientCloseWinsRaceWithControlRegistration() throws Exception {
+    try (var engine = FakeEngine.start(temp)) {
+      var client = client(engine);
+      engine.pauseControlResponse();
+      var connecting = CompletableFuture.supplyAsync(client::connect);
+      assertThat(engine.openControlRequests.poll(2, TimeUnit.SECONDS)).isNotNull();
+
+      client.close();
+      engine.resumeControlResponse();
+
+      assertThatThrownBy(() -> connecting.get(2, TimeUnit.SECONDS))
+          .isInstanceOf(ExecutionException.class)
+          .hasCauseInstanceOf(RstreamException.class)
+          .hasRootCauseMessage("rstream client is closed.");
     }
   }
 
@@ -638,6 +795,39 @@ final class RuntimeFakeEngineIT {
     return client(engine, true);
   }
 
+  private static RstreamClient heartbeatClient(FakeEngine engine, Duration operationTimeout) {
+    return RstreamClient.fromEnv(
+        ClientOptions.builder()
+            .engine(engine.address())
+            .readConfigFile(false)
+            .noToken(true)
+            .heartbeat(true)
+            .heartbeatInterval(Duration.ofSeconds(1))
+            .connectTimeout(Duration.ofSeconds(5))
+            .operationTimeout(operationTimeout)
+            .tls(TlsOptions.builder().insecureSkipVerify(true).build())
+            .build());
+  }
+
+  private static String failureCode(ControlChannel control, long timeout, TimeUnit timeUnit)
+      throws Exception {
+    try {
+      control.done().get(timeout, timeUnit);
+      throw new AssertionError("control channel completed without an error");
+    } catch (ExecutionException error) {
+      assertThat(error.getCause()).isInstanceOf(RstreamException.class);
+      return ((RstreamException) error.getCause()).code();
+    }
+  }
+
+  private static Socket accept(ServerSocket server) {
+    try {
+      return server.accept();
+    } catch (IOException error) {
+      throw new RstreamException("Test blackhole accept failed.", "ERR_TEST_ENGINE", error);
+    }
+  }
+
   private static RstreamClient timeoutClient(FakeEngine engine) {
     return timeoutClient(engine, true);
   }
@@ -712,13 +902,26 @@ final class RuntimeFakeEngineIT {
     private volatile boolean nextStreamHang;
     private volatile boolean nextStreamEmptyResponse;
     private volatile boolean nextProxyHang;
+    private volatile Rstream.ControlChannelLiveness liveness;
+    private volatile boolean acknowledgeHeartbeats;
+    private volatile long heartbeatAcknowledgementDelayMillis;
+    private volatile int heartbeatAcknowledgementEvery = 1;
+    private volatile long heartbeatAcknowledgementOffset;
+    private volatile boolean duplicateHeartbeatAcknowledgement;
+    private volatile CountDownLatch controlResponseGate;
     private int tunnelCounter;
+    private int heartbeatCount;
+    private final BlockingQueue<Rstream.OpenControlChannelReq> openControlRequests =
+        new LinkedBlockingQueue<>();
+    private final BlockingQueue<Rstream.Heartbeat> heartbeats = new LinkedBlockingQueue<>();
     private final BlockingQueue<Rstream.OpenTunnelReq> openTunnelRequests =
         new LinkedBlockingQueue<>();
     private final BlockingQueue<Rstream.CloseTunnelReq> closeTunnelRequests =
         new LinkedBlockingQueue<>();
     private final BlockingQueue<Rstream.StreamReq> streamRequests = new LinkedBlockingQueue<>();
     private final BlockingQueue<Rstream.ProxyReq> proxyRequests = new LinkedBlockingQueue<>();
+    private final BlockingQueue<CompletableFuture<Void>> proxyClosures =
+        new LinkedBlockingQueue<>();
     private final BlockingQueue<Rstream.ProxyConnRsp> proxyConnectionResponses =
         new LinkedBlockingQueue<>();
 
@@ -744,6 +947,32 @@ final class RuntimeFakeEngineIT {
 
     Path certificatePath() {
       return certificatePath;
+    }
+
+    void configureLiveness(
+        int intervalMillis,
+        int timeoutMillis,
+        boolean acknowledge,
+        long acknowledgementDelayMillis,
+        int acknowledgementEvery,
+        long acknowledgementOffset) {
+      liveness =
+          Rstream.ControlChannelLiveness.newBuilder()
+              .setHeartbeatIntervalMs(intervalMillis)
+              .setHeartbeatTimeoutMs(timeoutMillis)
+              .build();
+      acknowledgeHeartbeats = acknowledge;
+      heartbeatAcknowledgementDelayMillis = acknowledgementDelayMillis;
+      heartbeatAcknowledgementEvery = acknowledgementEvery;
+      heartbeatAcknowledgementOffset = acknowledgementOffset;
+    }
+
+    void pauseControlResponse() {
+      controlResponseGate = new CountDownLatch(1);
+    }
+
+    void resumeControlResponse() {
+      controlResponseGate.countDown();
     }
 
     void sendProxyConnection(String tunnelId, String streamId, String secret) {
@@ -786,6 +1015,7 @@ final class RuntimeFakeEngineIT {
       try {
         var message = Protocol.readMessage(socket.getInputStream());
         if (message.hasOpenControlChannelReq()) {
+          openControlRequests.offer(message.getOpenControlChannelReq());
           handleControl(socket);
           return;
         }
@@ -814,22 +1044,32 @@ final class RuntimeFakeEngineIT {
         nextControlHang = false;
         return;
       }
+      var responseGate = controlResponseGate;
+      if (responseGate != null) {
+        try {
+          responseGate.await();
+        } catch (InterruptedException error) {
+          Thread.currentThread().interrupt();
+          return;
+        }
+      }
+      var ok =
+          Rstream.OpenControlChannelRsp.Ok.newBuilder()
+              .setClientId("cli_1")
+              .setServerDetails(
+                  Rstream.ServerDetails.newBuilder()
+                      .setAgent(StringValue.newBuilder().setValue("fake-engine")));
+      if (liveness != null) ok.setLiveness(liveness);
       writeControl(
           Rstream.Message.newBuilder()
-              .setOpenControlChannelRsp(
-                  Rstream.OpenControlChannelRsp.newBuilder()
-                      .setOk(
-                          Rstream.OpenControlChannelRsp.Ok.newBuilder()
-                              .setClientId("cli_1")
-                              .setServerDetails(
-                                  Rstream.ServerDetails.newBuilder()
-                                      .setAgent(StringValue.newBuilder().setValue("fake-engine")))))
+              .setOpenControlChannelRsp(Rstream.OpenControlChannelRsp.newBuilder().setOk(ok))
               .build());
       while (!socket.isClosed()) {
         var message = Protocol.readMessage(socket.getInputStream());
         if (message.hasOpenTunnelReq()) handleOpenTunnel(message.getOpenTunnelReq());
         if (message.hasCloseTunnelReq()) handleCloseTunnel(message.getCloseTunnelReq());
         if (message.hasProxyConnRsp()) proxyConnectionResponses.offer(message.getProxyConnRsp());
+        if (message.hasHeartbeat()) handleHeartbeat(message.getHeartbeat());
         if (message.hasCloseControlChannelReq()) {
           if (nextCloseControlHang) {
             nextCloseControlHang = false;
@@ -841,6 +1081,35 @@ final class RuntimeFakeEngineIT {
                   .build());
           return;
         }
+      }
+    }
+
+    private void handleHeartbeat(Rstream.Heartbeat heartbeat) {
+      heartbeats.offer(heartbeat);
+      heartbeatCount++;
+      if (!acknowledgeHeartbeats || heartbeatCount % heartbeatAcknowledgementEvery != 0) return;
+      if (heartbeatCount == 1 && heartbeatAcknowledgementDelayMillis > 0) {
+        try {
+          Thread.sleep(heartbeatAcknowledgementDelayMillis);
+        } catch (InterruptedException error) {
+          Thread.currentThread().interrupt();
+          return;
+        }
+      }
+      writeControl(
+          Rstream.Message.newBuilder()
+              .setHeartbeat(
+                  Rstream.Heartbeat.newBuilder()
+                      .setAcknowledgement(heartbeat.getSequence() + heartbeatAcknowledgementOffset))
+              .build());
+      if (duplicateHeartbeatAcknowledgement) {
+        writeControl(
+            Rstream.Message.newBuilder()
+                .setHeartbeat(
+                    Rstream.Heartbeat.newBuilder()
+                        .setAcknowledgement(
+                            heartbeat.getSequence() + heartbeatAcknowledgementOffset))
+                .build());
       }
     }
 
@@ -929,7 +1198,13 @@ final class RuntimeFakeEngineIT {
             socket.getOutputStream(),
             Rstream.Message.newBuilder().setProxyRsp(Rstream.ProxyRsp.newBuilder()).build());
       }
-      echo(socket);
+      var closed = new CompletableFuture<Void>();
+      proxyClosures.offer(closed);
+      try {
+        echo(socket);
+      } finally {
+        closed.complete(null);
+      }
     }
 
     private void writeControl(Rstream.Message message) {
