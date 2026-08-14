@@ -123,9 +123,12 @@ final class RuntimeFakeEngineIT {
         var client = heartbeatClient(engine, Duration.ofSeconds(1))) {
       engine.configureLiveness(1_000, 2_500, true, 0, 2, 0);
       try (var control = client.connect()) {
-        Thread.sleep(3_200);
+        for (var sequence = 1L; sequence <= 4L; sequence++) {
+          var heartbeat = engine.heartbeats.poll(3, TimeUnit.SECONDS);
+          assertThat(heartbeat).isNotNull();
+          assertThat(heartbeat.getSequence()).isEqualTo(sequence);
+        }
         assertThat(control.closed()).isFalse();
-        assertThat(engine.heartbeats.size()).isGreaterThanOrEqualTo(4);
       }
     }
   }
