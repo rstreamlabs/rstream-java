@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.0](https://github.com/rstreamlabs/rstream-java/compare/rstream-v0.4.0...rstream-v0.5.0) (2026-08-15)
+
+
+### Features
+
+* **runtime:** negotiate bounded control liveness ([ecb4699](https://github.com/rstreamlabs/rstream-java/commit/ecb469966311273966d9ca91c733237e1252a345))
+* **runtime:** negotiate bounded control liveness ([1dcf35a](https://github.com/rstreamlabs/rstream-java/commit/1dcf35a27dc67c3d9039a279ed930092cfee6510))
+
+
+### Bug Fixes
+
+* **runtime:** drain payloads across control loss ([2338627](https://github.com/rstreamlabs/rstream-java/commit/233862744ed0ca47f7a7260c8bbbfcbf8266de37))
+
 ## [0.4.0](https://github.com/rstreamlabs/rstream-java/compare/rstream-v0.3.0...rstream-v0.4.0) (2026-08-01)
 
 
