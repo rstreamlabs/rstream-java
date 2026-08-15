@@ -3,12 +3,15 @@ package io.rstream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.time.Duration;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 final class RstreamTransportTest {
@@ -23,15 +26,16 @@ final class RstreamTransportTest {
 
   @Test
   void tlsHandshakeUsesConfiguredTimeout() throws Exception {
-    var accepted = new CountDownLatch(1);
+    var peerClosed = new CompletableFuture<Void>();
+    var acceptedSocket = new AtomicReference<Socket>();
     var executor = Executors.newSingleThreadExecutor();
     try (var listener = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
       executor.submit(
           () -> {
             try (var socket = listener.accept()) {
-              socket.setSoTimeout(2_000);
-              accepted.countDown();
-              Thread.sleep(2_000);
+              acceptedSocket.set(socket);
+              socket.getInputStream().transferTo(OutputStream.nullOutputStream());
+              peerClosed.complete(null);
             } catch (Exception ignored) {
             }
           });
@@ -44,8 +48,10 @@ final class RstreamTransportTest {
                       TlsOptions.builder().insecureSkipVerify(true).build(),
                       Duration.ofMillis(100)))
           .isInstanceOf(java.net.SocketTimeoutException.class);
-      accepted.await(1, TimeUnit.SECONDS);
+      peerClosed.get(1, TimeUnit.SECONDS);
     } finally {
+      var socket = acceptedSocket.get();
+      if (socket != null) socket.close();
       executor.shutdownNow();
     }
   }

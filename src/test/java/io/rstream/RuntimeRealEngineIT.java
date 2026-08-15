@@ -120,6 +120,14 @@ final class RuntimeRealEngineIT {
         var control = client.connectAsync().get(20, TimeUnit.SECONDS)) {
       assertThat(control.serverDetails()).isNotNull();
       assertThat(control.closed()).isFalse();
+      Thread.sleep(2200);
+      var tunnel =
+          control.createTunnel(
+              CreateTunnelOptions.builder()
+                  .name("java-heartbeat-" + UUID.randomUUID().toString().substring(0, 8))
+                  .publish(false)
+                  .build());
+      control.closeTunnel(tunnel.id());
     }
   }
 
@@ -339,7 +347,7 @@ final class RuntimeRealEngineIT {
   }
 
   private static RstreamClient client() {
-    var builder = ClientOptions.builder().heartbeat(false);
+    var builder = ClientOptions.builder().heartbeatInterval(Duration.ofSeconds(1));
     var engine = System.getenv("RSTREAM_JAVA_E2E_ENGINE");
     if (engine != null && !engine.isBlank()) builder.engine(engine);
     if ("1".equals(System.getenv("RSTREAM_JAVA_E2E_NO_TOKEN"))) builder.noToken(true);

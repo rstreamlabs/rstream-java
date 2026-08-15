@@ -71,6 +71,16 @@ final class ProtocolTest {
   }
 
   @Test
+  void controlLivenessMessagesPreserveIntervalAndSequence() {
+    var request = Protocol.openControlChannelRequest(null, 1_250).getOpenControlChannelReq();
+    var heartbeat = Protocol.heartbeat(42).getHeartbeat();
+    assertThat(request.getLiveness().getHeartbeatIntervalMs()).isEqualTo(1_250);
+    assertThat(request.getLiveness().getHeartbeatTimeoutMs()).isZero();
+    assertThat(heartbeat.getSequence()).isEqualTo(42);
+    assertThat(heartbeat.getAcknowledgement()).isZero();
+  }
+
+  @Test
   void proxyRequestContainsStreamAuthAndZeroRtt() {
     var request = Protocol.proxyRequest("stream_123", null, true).getProxyReq();
     assertThat(request.getStreamId()).isEqualTo("stream_123");

@@ -15,6 +15,23 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class ConfigResolverTest {
+  @Test
+  void heartbeatIntervalMustUseSupportedMillisecondBounds() {
+    assertThatThrownBy(
+            () -> ClientOptions.builder().heartbeatInterval(Duration.ofMillis(999)).build())
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("heartbeatInterval");
+    assertThatThrownBy(
+            () -> ClientOptions.builder().heartbeatInterval(Duration.ofMillis(300_001)).build())
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("heartbeatInterval");
+    assertThatThrownBy(
+            () ->
+                ClientOptions.builder().heartbeatInterval(Duration.ofNanos(1_000_500_000)).build())
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("heartbeatInterval");
+  }
+
   @TempDir Path temp;
 
   @Test

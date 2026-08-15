@@ -137,6 +137,15 @@ public final class PublishedTunnel {
 `forwardTo()` remains available for existing services that already bind a local
 TCP port.
 
+The control channel uses a negotiated heartbeat deadline. A missed deadline or
+an unexpected control-transport EOF closes tunnel admission immediately, while
+streams already returned by `accept()` and active `forwardTo()` relays keep
+their independent payload sockets and drain normally. This prevents a
+transient or asymmetric control-path outage from interrupting an established
+application session. Explicit tunnel/control closure and protocol revocation
+remain hard lifecycle operations enforced by the engine. Treat stream EOF or
+I/O failure—not `control.done()`—as the payload-lifecycle signal.
+
 ## Private dial
 
 ```java

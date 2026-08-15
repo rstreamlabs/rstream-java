@@ -17,16 +17,22 @@ final class RstreamTransport {
     var context = TlsSupport.context(tls);
     var peerHost = peerHost(address, tls, useConfiguredServerName);
     var rawSocket = new Socket();
-    rawSocket.connect(
-        new InetSocketAddress(address.host(), address.port()), timeoutMillis(timeout));
-    var socket =
-        (SSLSocket)
-            context.getSocketFactory().createSocket(rawSocket, peerHost, address.port(), true);
-    socket.setSoTimeout(timeoutMillis(timeout));
-    TlsSupport.configure(socket, peerHost, tls);
-    socket.startHandshake();
-    socket.setSoTimeout(0);
-    return socket;
+    SSLSocket socket = null;
+    try {
+      rawSocket.connect(
+          new InetSocketAddress(address.host(), address.port()), timeoutMillis(timeout));
+      socket =
+          (SSLSocket)
+              context.getSocketFactory().createSocket(rawSocket, peerHost, address.port(), true);
+      socket.setSoTimeout(timeoutMillis(timeout));
+      TlsSupport.configure(socket, peerHost, tls);
+      socket.startHandshake();
+      socket.setSoTimeout(0);
+      return socket;
+    } catch (IOException | RuntimeException error) {
+      closeQuietly(socket == null ? rawSocket : socket);
+      throw error;
+    }
   }
 
   static String peerHost(EngineAddress address, TlsOptions tls, boolean useConfiguredServerName) {
@@ -38,5 +44,12 @@ final class RstreamTransport {
     var millis = timeout.toMillis();
     if (millis > Integer.MAX_VALUE) return Integer.MAX_VALUE;
     return Math.max(1, (int) millis);
+  }
+
+  private static void closeQuietly(Socket socket) {
+    try {
+      socket.close();
+    } catch (IOException ignored) {
+    }
   }
 }
