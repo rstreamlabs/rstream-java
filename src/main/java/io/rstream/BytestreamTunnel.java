@@ -7,9 +7,17 @@ import java.net.Socket;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
+import java.util.WeakHashMap;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -19,7 +27,13 @@ public final class BytestreamTunnel implements AutoCloseable {
   private final TunnelProperties properties;
   private final StreamQueue streams = new StreamQueue();
   private final ExecutorService executor;
+  private final Object lifecycleLock = new Object();
+  private final Set<FutureTask<Void>> forwarders = new HashSet<>();
+  // Application-owned accepted streams must not be retained solely by lifecycle tracking.
+  private final Set<RstreamStream> payloads = Collections.newSetFromMap(new WeakHashMap<>());
+  private volatile boolean hardClosed;
   private volatile boolean closed;
+  private RuntimeException hardCloseError;
 
   BytestreamTunnel(ControlChannel control, TunnelProperties properties, ExecutorService executor) {
     if (properties.id() == null || properties.id().isBlank()) {
@@ -47,13 +61,13 @@ public final class BytestreamTunnel implements AutoCloseable {
   }
 
   public RstreamStream accept() throws InterruptedException {
-    return streams.take(null);
+    return finishAcceptance(streams.take(null));
   }
 
   public RstreamStream accept(Duration timeout) throws InterruptedException {
     Objects.requireNonNull(timeout, "timeout");
     if (timeout.isNegative()) throw new IllegalArgumentException("timeout must not be negative");
-    return streams.take(timeout);
+    return finishAcceptance(streams.take(timeout));
   }
 
   public CompletableFuture<RstreamStream> acceptAsync() {
@@ -81,7 +95,7 @@ public final class BytestreamTunnel implements AutoCloseable {
           while (!closed) {
             try {
               var stream = accept();
-              executor.submit(() -> pipeToLocal(stream, host, port));
+              startForwarder(stream, host, port);
             } catch (InterruptedException error) {
               Thread.currentThread().interrupt();
               return;
@@ -103,23 +117,58 @@ public final class BytestreamTunnel implements AutoCloseable {
   }
 
   boolean deliver(RstreamStream stream) {
+    synchronized (lifecycleLock) {
+      if (closed) {
+        stream.closeQuietly();
+        return false;
+      }
+      payloads.add(stream);
+    }
     return streams.offer(stream);
   }
 
   void onClose(Throwable error) {
-    if (closed) return;
-    closed = true;
+    onClose(error, false);
+  }
+
+  void onClose(Throwable error, boolean preserveForwarders) {
     var closeError =
         error instanceof RuntimeException runtimeError
             ? runtimeError
             : new RstreamException("Tunnel closed.", "ERR_RSTREAM_TUNNEL_CLOSED", error);
-    streams.close(closeError);
+    var firstClose = false;
+    Set<FutureTask<Void>> canceled = Set.of();
+    Set<RstreamStream> closedPayloads = Set.of();
+    synchronized (lifecycleLock) {
+      if (!closed) {
+        closed = true;
+        firstClose = true;
+      }
+      if (!preserveForwarders && !hardClosed) {
+        hardClosed = true;
+        hardCloseError = closeError;
+        canceled = Set.copyOf(forwarders);
+        closedPayloads = Set.copyOf(payloads);
+        payloads.clear();
+      }
+    }
+    if (firstClose) streams.close(closeError);
+    closedPayloads.forEach(RstreamStream::closeQuietly);
+    canceled.forEach(task -> task.cancel(true));
   }
 
   @Override
   public void close() {
-    if (closed) return;
-    control.closeTunnel(id());
+    if (closed) {
+      onClose(null, false);
+      return;
+    }
+    try {
+      control.closeTunnel(id());
+    } catch (RuntimeException error) {
+      if (closed) onClose(error, false);
+      throw error;
+    }
   }
 
   public CompletableFuture<Void> closeAsync() {
@@ -190,6 +239,57 @@ public final class BytestreamTunnel implements AutoCloseable {
       Thread.currentThread().interrupt();
       throw new RstreamException(
           "Interrupted while forwarding tunnel stream.", "ERR_RSTREAM_INTERRUPTED", error);
+    }
+  }
+
+  private void startForwarder(RstreamStream stream, String host, int port) {
+    var task =
+        new FutureTask<Void>(() -> pipeToLocal(stream, host, port), null) {
+          @Override
+          protected void done() {
+            forwarderDone(this);
+          }
+        };
+    synchronized (lifecycleLock) {
+      if (hardClosed) {
+        stream.closeQuietly();
+        return;
+      }
+      forwarders.add(task);
+    }
+    try {
+      executor.execute(task);
+    } catch (RejectedExecutionException error) {
+      synchronized (lifecycleLock) {
+        forwarders.remove(task);
+      }
+      stream.closeQuietly();
+      throw new RstreamException(
+          "Failed to schedule tunnel forwarding.", "ERR_RSTREAM_FORWARD", error);
+    }
+  }
+
+  private RstreamStream finishAcceptance(RstreamStream stream) {
+    if (stream == null) return null;
+    RuntimeException closeError;
+    synchronized (lifecycleLock) {
+      closeError = hardClosed ? hardCloseError : null;
+    }
+    if (closeError == null) return stream;
+    stream.closeQuietly();
+    throw closeError;
+  }
+
+  private void forwarderDone(FutureTask<Void> task) {
+    synchronized (lifecycleLock) {
+      forwarders.remove(task);
+    }
+    try {
+      task.get();
+    } catch (CancellationException ignored) {
+    } catch (InterruptedException error) {
+      Thread.currentThread().interrupt();
+    } catch (ExecutionException ignored) {
     }
   }
 

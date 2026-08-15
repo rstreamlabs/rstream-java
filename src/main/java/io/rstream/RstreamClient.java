@@ -137,8 +137,8 @@ public final class RstreamClient implements AutoCloseable {
     var zeroRtt = options.zeroRtt() == null ? resolvedOptions.zeroRtt() : options.zeroRtt();
     var socket =
         openStreamSocket(engine, resolvedOptions, Protocol.streamRequest(target, token, zeroRtt));
-    if (!zeroRtt) {
-      try {
+    try {
+      if (!zeroRtt) {
         var response = Protocol.readMessage(socket.getInputStream());
         if (!response.hasStreamRsp()) {
           throw new ProtocolException("Engine did not return StreamRsp.", "ERR_RSTREAM_PROTOCOL");
@@ -151,14 +151,14 @@ public final class RstreamClient implements AutoCloseable {
           throw new ProtocolException(
               "Engine returned an empty StreamRsp.", "ERR_RSTREAM_PROTOCOL");
         }
-        setReadTimeout(socket, Duration.ZERO);
-      } catch (SocketTimeoutException error) {
-        closeQuietly(socket);
-        throw operationTimeout("Timed out waiting for the private stream response.", error);
-      } catch (IOException | RuntimeException error) {
-        closeQuietly(socket);
-        throw runtime("Failed to dial private bytestream tunnel.", "ERR_RSTREAM_DIAL", error);
       }
+      setReadTimeout(socket, Duration.ZERO);
+    } catch (SocketTimeoutException error) {
+      closeQuietly(socket);
+      throw operationTimeout("Timed out waiting for the private stream response.", error);
+    } catch (IOException | RuntimeException error) {
+      closeQuietly(socket);
+      throw runtime("Failed to dial private bytestream tunnel.", "ERR_RSTREAM_DIAL", error);
     }
     return new RstreamStream(socket);
   }
@@ -229,22 +229,22 @@ public final class RstreamClient implements AutoCloseable {
             resolvedOptions,
             Protocol.proxyRequest(request.getStreamId(), token, resolvedOptions.zeroRtt()),
             proxyEngine.equals(engine));
-    if (!resolvedOptions.zeroRtt()) {
-      try {
+    try {
+      if (!resolvedOptions.zeroRtt()) {
         var response = Protocol.readMessage(socket.getInputStream());
         if (!response.hasProxyRsp()) {
           throw new ProtocolException("Engine did not return ProxyRsp.", "ERR_RSTREAM_PROTOCOL");
         }
         if (response.getProxyRsp().hasError())
           throw Protocol.engineErrorFromPb(response.getProxyRsp().getError());
-        setReadTimeout(socket, Duration.ZERO);
-      } catch (SocketTimeoutException error) {
-        closeQuietly(socket);
-        throw operationTimeout("Timed out waiting for the proxy stream response.", error);
-      } catch (IOException | RuntimeException error) {
-        closeQuietly(socket);
-        throw runtime("Failed to open rstream proxy connection.", "ERR_RSTREAM_PROXY", error);
       }
+      setReadTimeout(socket, Duration.ZERO);
+    } catch (SocketTimeoutException error) {
+      closeQuietly(socket);
+      throw operationTimeout("Timed out waiting for the proxy stream response.", error);
+    } catch (IOException | RuntimeException error) {
+      closeQuietly(socket);
+      throw runtime("Failed to open rstream proxy connection.", "ERR_RSTREAM_PROXY", error);
     }
     return new RstreamStream(socket);
   }

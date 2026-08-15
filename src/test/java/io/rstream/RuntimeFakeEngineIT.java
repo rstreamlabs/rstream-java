@@ -97,6 +97,186 @@ final class RuntimeFakeEngineIT {
   }
 
   @Test
+  void acceptedStreamSurvivesLivenessTimeout() throws Exception {
+    try (var engine = FakeEngine.start(temp);
+        var client = heartbeatClient(engine, Duration.ofSeconds(1))) {
+      engine.configureLiveness(1_000, 1_000, false, 0, 1, 0);
+      var control = client.connect();
+      var tunnel = control.createTunnel();
+      engine.sendProxyConnection(tunnel.id(), "draining-accepted", "stream-secret");
+      try (var stream = tunnel.accept(Duration.ofSeconds(2))) {
+        assertThat(engine.proxyConnectionResponses.poll(2, TimeUnit.SECONDS)).isNotNull();
+        assertThat(roundTrip(stream.socket(), "before")).isEqualTo("before");
+        assertThat(failureCode(control, 2, TimeUnit.SECONDS))
+            .isEqualTo("ERR_RSTREAM_CONTROL_LIVENESS");
+        assertThat(tunnel.closed()).isTrue();
+        assertThat(roundTrip(stream.socket(), "after")).isEqualTo("after");
+      }
+    }
+  }
+
+  @Test
+  void forwardedStreamSurvivesLivenessTimeout() throws Exception {
+    try (var local = new ServerSocket(0, 50, InetAddress.getLoopbackAddress());
+        var engine = FakeEngine.start(temp);
+        var client = heartbeatClient(engine, Duration.ofSeconds(1))) {
+      engine.configureLiveness(1_000, 1_000, false, 0, 1, 0);
+      var control = client.connect();
+      var tunnel = control.createTunnel();
+      var forwarding = tunnel.forwardTo("127.0.0.1", local.getLocalPort());
+      var accepted = CompletableFuture.supplyAsync(() -> accept(local));
+      engine.sendProxyConnection(tunnel.id(), "draining-forward", "stream-secret");
+      try (var localStream = accepted.get(2, TimeUnit.SECONDS)) {
+        assertThat(engine.proxyConnectionResponses.poll(2, TimeUnit.SECONDS)).isNotNull();
+        assertThat(roundTrip(localStream, "before")).isEqualTo("before");
+        assertThat(failureCode(control, 2, TimeUnit.SECONDS))
+            .isEqualTo("ERR_RSTREAM_CONTROL_LIVENESS");
+        assertThat(roundTrip(localStream, "after")).isEqualTo("after");
+      }
+      forwarding.get(2, TimeUnit.SECONDS);
+    }
+  }
+
+  @Test
+  void explicitControlCloseStopsForwardedStreamLocally() throws Exception {
+    try (var local = new ServerSocket(0, 50, InetAddress.getLoopbackAddress());
+        var engine = FakeEngine.start(temp);
+        var client = client(engine)) {
+      var control = client.connect();
+      var tunnel = control.createTunnel();
+      var forwarding = tunnel.forwardTo("127.0.0.1", local.getLocalPort());
+      var accepted = CompletableFuture.supplyAsync(() -> accept(local));
+      engine.sendProxyConnection(tunnel.id(), "hard-close-forward", "stream-secret");
+      try (var localStream = accepted.get(2, TimeUnit.SECONDS)) {
+        assertThat(engine.proxyConnectionResponses.poll(2, TimeUnit.SECONDS)).isNotNull();
+        assertThat(roundTrip(localStream, "before")).isEqualTo("before");
+        control.close();
+        localStream.setSoTimeout(500);
+        assertThat(localStream.getInputStream().read()).isEqualTo(-1);
+      }
+      forwarding.get(2, TimeUnit.SECONDS);
+    }
+  }
+
+  @Test
+  void explicitControlCloseStopsAcceptedStreamLocally() throws Exception {
+    try (var engine = FakeEngine.start(temp);
+        var client = client(engine)) {
+      var control = client.connect();
+      var tunnel = control.createTunnel();
+      engine.sendProxyConnection(tunnel.id(), "hard-close-accepted", "stream-secret");
+      try (var stream = tunnel.accept(Duration.ofSeconds(2))) {
+        assertThat(engine.proxyConnectionResponses.poll(2, TimeUnit.SECONDS)).isNotNull();
+        assertThat(roundTrip(stream.socket(), "before")).isEqualTo("before");
+        control.close();
+        assertThat(stream.socket().isClosed()).isTrue();
+      }
+    }
+  }
+
+  @Test
+  void localHardCloseAfterLivenessTimeoutStopsAcceptedStream() throws Exception {
+    try (var engine = FakeEngine.start(temp);
+        var client = heartbeatClient(engine, Duration.ofSeconds(1))) {
+      engine.configureLiveness(1_000, 1_000, false, 0, 1, 0);
+      var control = client.connect();
+      var tunnel = control.createTunnel();
+      engine.sendProxyConnection(tunnel.id(), "soft-then-hard-accepted", "stream-secret");
+      try (var stream = tunnel.accept(Duration.ofSeconds(2))) {
+        assertThat(engine.proxyConnectionResponses.poll(2, TimeUnit.SECONDS)).isNotNull();
+        assertThat(roundTrip(stream.socket(), "before")).isEqualTo("before");
+        assertThat(failureCode(control, 2, TimeUnit.SECONDS))
+            .isEqualTo("ERR_RSTREAM_CONTROL_LIVENESS");
+        assertThat(roundTrip(stream.socket(), "after-soft-close")).isEqualTo("after-soft-close");
+        tunnel.close();
+        assertThat(stream.socket().isClosed()).isTrue();
+      }
+    }
+  }
+
+  @Test
+  void malformedControlFrameStopsForwardedStreamLocally() throws Exception {
+    try (var local = new ServerSocket(0, 50, InetAddress.getLoopbackAddress());
+        var engine = FakeEngine.start(temp);
+        var client = client(engine)) {
+      var control = client.connect();
+      var tunnel = control.createTunnel();
+      var forwarding = tunnel.forwardTo("127.0.0.1", local.getLocalPort());
+      var accepted = CompletableFuture.supplyAsync(() -> accept(local));
+      engine.sendProxyConnection(tunnel.id(), "protocol-failure-forward", "stream-secret");
+      try (var localStream = accepted.get(2, TimeUnit.SECONDS)) {
+        assertThat(engine.proxyConnectionResponses.poll(2, TimeUnit.SECONDS)).isNotNull();
+        assertThat(roundTrip(localStream, "before")).isEqualTo("before");
+        engine.sendMalformedControlFrame();
+        assertThat(failureCode(control, 2, TimeUnit.SECONDS)).isEqualTo("ERR_RSTREAM_PROTOCOL");
+        localStream.setSoTimeout(500);
+        assertThat(localStream.getInputStream().read()).isEqualTo(-1);
+      }
+      forwarding.get(2, TimeUnit.SECONDS);
+    }
+  }
+
+  @Test
+  void zeroRttDirectStreamDoesNotInheritOperationTimeout() throws Exception {
+    try (var engine = FakeEngine.start(temp);
+        var client = timeoutClient(engine, true)) {
+      CompletableFuture<Integer> blockedRead;
+      try (var stream = client.dial("private-api")) {
+        blockedRead =
+            CompletableFuture.supplyAsync(
+                () -> {
+                  try {
+                    return stream.inputStream().read();
+                  } catch (IOException error) {
+                    throw new RstreamException("Test read failed.", "ERR_TEST_READ", error);
+                  }
+                });
+        Thread.sleep(250);
+        assertThat(blockedRead).isNotDone();
+      }
+      blockedRead.handle((value, error) -> null).get(2, TimeUnit.SECONDS);
+    }
+  }
+
+  @Test
+  void zeroRttForwarderDoesNotInheritOperationTimeout() throws Exception {
+    try (var local = new ServerSocket(0, 50, InetAddress.getLoopbackAddress());
+        var engine = FakeEngine.start(temp);
+        var client = timeoutClient(engine, true);
+        var control = client.connect()) {
+      var tunnel = control.createTunnel();
+      var forwarding = tunnel.forwardTo("127.0.0.1", local.getLocalPort());
+      var accepted = CompletableFuture.supplyAsync(() -> accept(local));
+      engine.sendProxyConnection(tunnel.id(), "zero-rtt-timeout-forward", "stream-secret");
+      try (var localStream = accepted.get(2, TimeUnit.SECONDS)) {
+        assertThat(engine.proxyConnectionResponses.poll(2, TimeUnit.SECONDS)).isNotNull();
+        assertThat(roundTrip(localStream, "before")).isEqualTo("before");
+        Thread.sleep(250);
+        assertThat(roundTrip(localStream, "after")).isEqualTo("after");
+      }
+      tunnel.close();
+      forwarding.get(2, TimeUnit.SECONDS);
+    }
+  }
+
+  @Test
+  void acceptedStreamSurvivesUnexpectedControlTransportEof() throws Exception {
+    try (var engine = FakeEngine.start(temp);
+        var client = client(engine)) {
+      var control = client.connect();
+      var tunnel = control.createTunnel();
+      engine.sendProxyConnection(tunnel.id(), "eof-accepted", "stream-secret");
+      try (var stream = tunnel.accept(Duration.ofSeconds(2))) {
+        assertThat(engine.proxyConnectionResponses.poll(2, TimeUnit.SECONDS)).isNotNull();
+        engine.closeControlSocket();
+        assertThatThrownBy(() -> control.done().get(2, TimeUnit.SECONDS))
+            .isInstanceOf(ExecutionException.class);
+        assertThat(roundTrip(stream.socket(), "survives")).isEqualTo("survives");
+      }
+    }
+  }
+
+  @Test
   void negotiatedLivenessRejectsFutureAcknowledgement() throws Exception {
     try (var engine = FakeEngine.start(temp);
         var client = heartbeatClient(engine, Duration.ofSeconds(1))) {
@@ -877,6 +1057,13 @@ final class RuntimeFakeEngineIT {
     }
   }
 
+  private static String roundTrip(Socket socket, String payload) throws IOException {
+    var bytes = payload.getBytes(StandardCharsets.UTF_8);
+    socket.getOutputStream().write(bytes);
+    socket.getOutputStream().flush();
+    return new String(socket.getInputStream().readNBytes(bytes.length), StandardCharsets.UTF_8);
+  }
+
   private static <T> List<T> drain(BlockingQueue<T> queue, int count) throws InterruptedException {
     var values = new ArrayList<T>();
     for (var index = 0; index < count; index++) {
@@ -993,6 +1180,17 @@ final class RuntimeFakeEngineIT {
 
     void closeControlSocket() throws IOException {
       controlSocket.close();
+    }
+
+    void sendMalformedControlFrame() {
+      synchronized (controlWriteLock) {
+        try {
+          controlSocket.getOutputStream().write(new byte[] {0, 0, 0, 1, (byte) 0xff});
+          controlSocket.getOutputStream().flush();
+        } catch (IOException error) {
+          throw new RstreamException("Fake engine control write failed.", "ERR_TEST_ENGINE", error);
+        }
+      }
     }
 
     @Override

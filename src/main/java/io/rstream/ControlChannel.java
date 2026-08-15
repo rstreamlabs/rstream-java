@@ -200,8 +200,10 @@ public final class ControlChannel implements AutoCloseable {
   }
 
   void finish(Throwable error) {
+    boolean preservePayloads;
     synchronized (closeLock) {
       if (closed) return;
+      preservePayloads = !closing && preservePayloadsAfter(error);
       closed = true;
     }
     if (heartbeat != null) heartbeat.cancel(true);
@@ -223,7 +225,7 @@ public final class ControlChannel implements AutoCloseable {
             : error;
     pendingTunnels.values().forEach(pending -> pending.completeExceptionally(closeError));
     pendingCloses.values().forEach(pending -> pending.completeExceptionally(closeError));
-    tunnels.values().forEach(tunnel -> tunnel.onClose(closeError));
+    tunnels.values().forEach(tunnel -> tunnel.onClose(closeError, preservePayloads));
     pendingTunnels.clear();
     pendingCloses.clear();
     tunnels.clear();
@@ -473,6 +475,16 @@ public final class ControlChannel implements AutoCloseable {
 
   private static ProtocolException heartbeatProtocolError() {
     return new ProtocolException("Engine returned an invalid heartbeat.", "ERR_RSTREAM_PROTOCOL");
+  }
+
+  private static boolean preservePayloadsAfter(Throwable error) {
+    if (error instanceof ProtocolException) return false;
+    if (error instanceof RstreamException rstreamError
+        && rstreamError.code().equals("ERR_RSTREAM_CONTROL_LIVENESS")) return true;
+    for (var cause = error; cause != null; cause = cause.getCause()) {
+      if (cause instanceof IOException) return true;
+    }
+    return false;
   }
 
   private <T> ScheduledFuture<?> operationTimeout(
