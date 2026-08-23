@@ -9,7 +9,7 @@
     <java.version>17</java.version>
     <maven.compiler.release>${java.version}</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <vertx.version>5.1.5</vertx.version>
+    <vertx.version>5.1.6</vertx.version>
   </properties>
   <dependencies>
     <dependency>
