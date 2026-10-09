@@ -637,6 +637,51 @@ final class ConfigResolverTest {
     }
   }
 
+  @Test
+  void externalMtlsSignerIsRejectedForTheSelectedContextOrEnvironment() throws Exception {
+    for (var environment : List.of(false, true)) {
+      var configPath =
+          config(
+              (environment
+                      ? "environments:\n  - apiUrl: https://rstream.io\n"
+                      : "contexts:\n  - name: external\n    engine: engine.example:443\n")
+                  + """
+                        auth:
+                          mtls:
+                            storage:
+                              kind: exec
+                              certificateSHA256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+                              exec:
+                                command: /nonexistent/identity-helper
+                                args: [--slot, device]
+                    """
+                  + (environment
+                      ? "contexts:\n  - name: external\n    apiUrl: https://rstream.io\n    engine: engine.example:443\n"
+                      : "")
+                  + "  - name: software\n    apiUrl: https://other.example\n    engine: software.example:443\n");
+      assertThatThrownBy(
+              () ->
+                  ConfigResolver.resolve(
+                      ClientOptions.builder()
+                          .configPath(configPath.toString())
+                          .context("external")
+                          .build(),
+                      Map.of()))
+          .isInstanceOf(UnsupportedFeatureException.class)
+          .hasMessage("mTLS storage provider 'exec' is not supported by rstream-java.")
+          .hasFieldOrPropertyWithValue("code", "ERR_RSTREAM_UNSUPPORTED_MTLS_STORAGE");
+      var resolved =
+          ConfigResolver.resolve(
+              ClientOptions.builder()
+                  .configPath(configPath.toString())
+                  .context("software")
+                  .noToken(true)
+                  .build(),
+              Map.of());
+      assertThat(resolved.engine()).isEqualTo("software.example:443");
+    }
+  }
+
   private Path config(String content) throws Exception {
     var path = temp.resolve("config.yaml");
     Files.writeString(path, content);

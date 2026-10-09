@@ -121,4 +121,10 @@ or credential storage settings instead of ignoring them:
 - Datagram tunnels.
 - SOCKS or custom proxy transport.
 - Custom DNS transport settings.
-- Keychain, PKCS#11, or other external credential stores.
+- Keychain, PKCS#11, external mTLS signers (`auth.mtls.storage.kind: exec`),
+  or other external credential stores.
+
+The `exec` backend is supported by the Go SDK and CLI. Selecting a context or
+environment that uses it raises `ERR_RSTREAM_UNSUPPORTED_MTLS_STORAGE` before
+connecting; this SDK never executes the configured helper. Other contexts in the
+same configuration file remain usable.
