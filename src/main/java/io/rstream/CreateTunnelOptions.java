@@ -25,13 +25,62 @@ public record CreateTunnelOptions(
     Integer port,
     Boolean upstreamTls,
     Boolean allowCrossRegionRouting,
-    TunnelAuth auth) {
+    TunnelAuth auth,
+    HttpCors httpCors) {
   public CreateTunnelOptions {
     labels = labels == null ? Map.of() : Map.copyOf(labels);
     geoIp = geoIp == null ? List.of() : List.copyOf(geoIp);
     trustedIps = trustedIps == null ? List.of() : List.copyOf(trustedIps);
     tlsAlpns = tlsAlpns == null ? List.of() : List.copyOf(tlsAlpns);
     tlsCiphers = tlsCiphers == null ? List.of() : List.copyOf(tlsCiphers);
+  }
+
+  /** Preserves the constructor used before HTTP CORS was introduced. */
+  public CreateTunnelOptions(
+      String name,
+      TunnelType type,
+      Boolean publish,
+      TunnelProtocol protocol,
+      Map<String, String> labels,
+      List<String> geoIp,
+      List<String> trustedIps,
+      TlsMode tlsMode,
+      List<String> tlsAlpns,
+      String tlsMinVersion,
+      List<String> tlsCiphers,
+      Boolean mtlsAuth,
+      HttpVersion httpVersion,
+      Boolean tokenAuth,
+      Boolean rstreamAuth,
+      Boolean challengeMode,
+      String hostname,
+      Integer port,
+      Boolean upstreamTls,
+      Boolean allowCrossRegionRouting,
+      TunnelAuth auth) {
+    this(
+        name,
+        type,
+        publish,
+        protocol,
+        labels,
+        geoIp,
+        trustedIps,
+        tlsMode,
+        tlsAlpns,
+        tlsMinVersion,
+        tlsCiphers,
+        mtlsAuth,
+        httpVersion,
+        tokenAuth,
+        rstreamAuth,
+        challengeMode,
+        hostname,
+        port,
+        upstreamTls,
+        allowCrossRegionRouting,
+        auth,
+        null);
   }
 
   public static Builder builder() {
@@ -43,6 +92,7 @@ public record CreateTunnelOptions(
   }
 
   public static final class Builder {
+    private HttpCors httpCors;
     private String name;
     private TunnelType type;
     private Boolean publish;
@@ -170,6 +220,11 @@ public record CreateTunnelOptions(
       return this;
     }
 
+    public Builder httpCors(HttpCors httpCors) {
+      this.httpCors = httpCors;
+      return this;
+    }
+
     public CreateTunnelOptions build() {
       return new CreateTunnelOptions(
           name,
@@ -192,7 +247,8 @@ public record CreateTunnelOptions(
           port,
           upstreamTls,
           allowCrossRegionRouting,
-          auth);
+          auth,
+          httpCors);
     }
   }
 }

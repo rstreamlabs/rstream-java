@@ -155,6 +155,17 @@ final class Protocol {
       builder.setDatagramGuaranteedDelivery(boolValue(properties.datagramGuaranteedDelivery()));
     if (properties.allowCrossRegionRouting() != null)
       builder.setAllowCrossRegionRouting(boolValue(properties.allowCrossRegionRouting()));
+    if (properties.httpCors() != null) {
+      var config = properties.httpCors();
+      builder.setHttpCors(
+          Rstream.HttpCors.newBuilder()
+              .addAllAllowedOrigins(config.allowedOrigins())
+              .addAllAllowedMethods(config.allowedMethods())
+              .addAllAllowedHeaders(config.allowedHeaders())
+              .addAllExposedHeaders(config.exposedHeaders())
+              .setAllowCredentials(config.allowCredentials())
+              .setMaxAge(config.maxAge()));
+    }
     return builder.build();
   }
 
@@ -189,7 +200,18 @@ final class Protocol {
         wrapperBool(
             properties.hasDatagramGuaranteedDelivery(), properties.getDatagramGuaranteedDelivery()),
         wrapperBool(
-            properties.hasAllowCrossRegionRouting(), properties.getAllowCrossRegionRouting()));
+            properties.hasAllowCrossRegionRouting(), properties.getAllowCrossRegionRouting()),
+        properties.hasHttpCors() ? httpCorsFromPb(properties.getHttpCors()) : null);
+  }
+
+  private static HttpCors httpCorsFromPb(Rstream.HttpCors config) {
+    return new HttpCors(
+        config.getAllowedOriginsList(),
+        config.getAllowedMethodsList(),
+        config.getAllowedHeadersList(),
+        config.getExposedHeadersList(),
+        config.getAllowCredentials(),
+        config.getMaxAge());
   }
 
   static ServerDetails serverDetailsFromPb(Rstream.ServerDetails details) {

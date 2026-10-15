@@ -30,7 +30,8 @@ public record TunnelProperties(
     Integer port,
     Boolean upstreamTls,
     Boolean datagramGuaranteedDelivery,
-    Boolean allowCrossRegionRouting) {
+    Boolean allowCrossRegionRouting,
+    HttpCors httpCors) {
   public TunnelProperties {
     labels = labels == null ? Map.of() : Map.copyOf(labels);
     geoIp = geoIp == null ? List.of() : List.copyOf(geoIp);
@@ -39,11 +40,68 @@ public record TunnelProperties(
     tlsCiphers = tlsCiphers == null ? List.of() : List.copyOf(tlsCiphers);
   }
 
+  /** Preserves the constructor used before HTTP CORS was introduced. */
+  public TunnelProperties(
+      String id,
+      Instant creationDate,
+      String name,
+      TunnelType type,
+      Boolean publish,
+      TunnelProtocol protocol,
+      Map<String, String> labels,
+      List<String> geoIp,
+      List<String> trustedIps,
+      String host,
+      TlsMode tlsMode,
+      List<String> tlsAlpns,
+      String tlsMinVersion,
+      List<String> tlsCiphers,
+      Boolean mtlsAuth,
+      HttpVersion httpVersion,
+      Boolean httpUseTls,
+      Boolean tokenAuth,
+      Boolean rstreamAuth,
+      Boolean challengeMode,
+      String hostname,
+      Integer port,
+      Boolean upstreamTls,
+      Boolean datagramGuaranteedDelivery,
+      Boolean allowCrossRegionRouting) {
+    this(
+        id,
+        creationDate,
+        name,
+        type,
+        publish,
+        protocol,
+        labels,
+        geoIp,
+        trustedIps,
+        host,
+        tlsMode,
+        tlsAlpns,
+        tlsMinVersion,
+        tlsCiphers,
+        mtlsAuth,
+        httpVersion,
+        httpUseTls,
+        tokenAuth,
+        rstreamAuth,
+        challengeMode,
+        hostname,
+        port,
+        upstreamTls,
+        datagramGuaranteedDelivery,
+        allowCrossRegionRouting,
+        null);
+  }
+
   public static Builder builder() {
     return new Builder();
   }
 
   public static final class Builder {
+    private HttpCors httpCors;
     private String id;
     private Instant creationDate;
     private String name;
@@ -195,6 +253,11 @@ public record TunnelProperties(
       return this;
     }
 
+    public Builder httpCors(HttpCors httpCors) {
+      this.httpCors = httpCors;
+      return this;
+    }
+
     public TunnelProperties build() {
       return new TunnelProperties(
           id,
@@ -221,7 +284,8 @@ public record TunnelProperties(
           port,
           upstreamTls,
           datagramGuaranteedDelivery,
-          allowCrossRegionRouting);
+          allowCrossRegionRouting,
+          httpCors);
     }
   }
 }
