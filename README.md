@@ -237,6 +237,6 @@ Apache-2.0. See [LICENSE](LICENSE).
 
 ## HTTP CORS
 
-Use `.httpCors(new HttpCors(List.of("https://dashboard.example")))` on `CreateTunnelOptions.builder()`. The full `HttpCors` constructor accepts allowed origins, methods, request headers, exposed response headers, `allowCredentials`, and `maxAge` in seconds. Existing constructors remain available.
+Use `.httpCors(new HttpCors(List.of("https://dashboard.example")))` on `CreateTunnelOptions.builder()`. The full `HttpCors` constructor accepts allowed origins, methods, request headers, exposed response headers, `allowCredentials`, and `maxAge` in seconds.
 
-CORS requires a published HTTP tunnel. Allowed origins must be explicit HTTP(S) origins without paths or wildcards. Omitted method and request-header lists use GET/HEAD/POST and Authorization/Content-Type; credentials are disabled and max age is zero by default. An absent policy preserves upstream CORS. Engine answers valid preflights before request authentication, but every actual request still requires its usual authorization. No filesystem or upstream access is granted by a preflight. Deploy an Engine supporting protocol patch 1.4.6 before using this SDK version; the new Engine remains compatible with supported older clients.
+CORS requires a published HTTP tunnel. Allowed origins must be explicit HTTP(S) origins without paths or wildcards. Omitted method and request-header lists use GET/HEAD/POST and Authorization/Content-Type; credentials are disabled and max age is zero by default. An absent policy preserves upstream CORS. Engine answers valid preflights before request authentication, but every actual request still requires its usual authorization. A preflight does not grant access to the upstream application.
