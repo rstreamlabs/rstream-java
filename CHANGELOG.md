@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/rstreamlabs/rstream-java/compare/rstream-v0.5.0...rstream-v0.6.0) (2026-10-28)
+
+
+### Features
+
+* **http:** expose optional tunnel CORS policies ([#21](https://github.com/rstreamlabs/rstream-java/issues/21)) ([c3e0970](https://github.com/rstreamlabs/rstream-java/commit/c3e0970bbc323ad007474a0805bebd25267002f8))
+
+
+### Documentation
+
+* keep CORS guidance focused on usage ([#23](https://github.com/rstreamlabs/rstream-java/issues/23)) ([e369177](https://github.com/rstreamlabs/rstream-java/commit/e369177a81bb6ed73c39a2e5d6b60da21c9e1c78))
+
 ## [0.5.0](https://github.com/rstreamlabs/rstream-java/compare/rstream-v0.4.0...rstream-v0.5.0) (2026-08-15)
 
 
