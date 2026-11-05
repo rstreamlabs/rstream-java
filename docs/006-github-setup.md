@@ -37,8 +37,9 @@ the first public Maven Central release is ready:
 | `GPG_PRIVATE_KEY` | ASCII-armored signing key used for release artifacts. |
 | `GPG_PASSPHRASE` | Passphrase for the signing key. |
 
-Create an environment named `maven-central` in GitHub. Optionally require manual
-approval on that environment before publishing.
+Create an environment named `maven-central` in GitHub for the signing secrets.
+Create a separate `stable-release` environment for publishing credentials and
+require maintainer approval before promotion.
 
 In the Central Publisher Portal, verify ownership of the `io.rstream` namespace
 before the first release. Generate the publishing token at:
@@ -47,9 +48,11 @@ before the first release. Generate the publishing token at:
 https://central.sonatype.com/usertoken
 ```
 
-The `release` Maven profile signs artifacts and uses the Central Publishing
-plugin with `autoPublish` enabled. The publish workflow runs on published GitHub
-releases and can also be triggered manually.
+Release-please creates a draft GitHub release and a `rstream-v<version>` tag.
+That tag starts the candidate workflow, which builds and verifies a signed
+Maven Central bundle without publishing it. After qualification, dispatch the
+promotion workflow with the same tag. It verifies and publishes the retained
+bundle, then publishes the GitHub release. It never rebuilds the candidate.
 
 Export the signing key with:
 
