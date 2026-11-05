@@ -46,7 +46,7 @@ jobs:
           cache: maven
       - name: Install SDK snapshot
         shell: bash
-        run: mvn -B -DskipTests install
+        run: mvn -B install
       - name: Compile examples
         shell: bash
         run: |
