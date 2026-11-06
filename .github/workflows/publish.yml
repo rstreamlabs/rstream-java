@@ -35,7 +35,7 @@ jobs:
             echo "invalid release tag: ${RELEASE_TAG}" >&2
             exit 1
           fi
-          if [[ "$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq '.draft')" != true ]]; then
+          if [[ "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')" != true ]]; then
             echo "GitHub release ${RELEASE_TAG} must still be a draft" >&2
             exit 1
           fi
