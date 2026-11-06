@@ -44,6 +44,16 @@ final class ReleaseWorkflowTest {
   }
 
   @Test
+  void promotionCanFindTheDraftBeforePublishing() throws IOException {
+    String workflow = read(".github/workflows/publish.yml");
+    String lookup = workflow.substring(0, workflow.indexOf("version=${RELEASE_TAG#"));
+    assertThat(lookup)
+        .contains("gh release view \"$RELEASE_TAG\" --repo \"$GITHUB_REPOSITORY\" --json isDraft")
+        .contains("--jq '.isDraft')\" != true")
+        .doesNotContain("/releases/tags/");
+  }
+
+  @Test
   void releaseCandidateDoesNotPublish() throws IOException {
     String workflow = read(".github/workflows/release-candidate.yml");
     assertThat(workflow).contains("actions/upload-artifact@");
