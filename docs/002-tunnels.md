@@ -159,6 +159,15 @@ already coordinate work through futures.
 
 ## Lifecycle
 
+The control channel uses a negotiated heartbeat deadline. A missed deadline or
+an unexpected control-transport EOF closes tunnel admission immediately, while
+streams already returned by `accept()` and active `forwardTo()` relays keep
+their independent payload sockets and drain normally. This prevents a
+transient or asymmetric control-path outage from interrupting an established
+application session. Explicit tunnel/control closure and protocol revocation
+remain hard lifecycle operations enforced by the engine. Treat stream EOF or
+I/O failure—not `control.done()`—as the payload-lifecycle signal.
+
 `RstreamClient.connect()` opens a control channel. Use try-with-resources so the
 close request is sent even when application code raises:
 
@@ -178,3 +187,9 @@ try (var client = RstreamClient.fromEnv();
 one to an existing local TCP service. Use it for services that already bind a
 local port. New Java framework integrations should prefer `serveHttp()` when
 the application can handle requests in-process.
+
+## HTTP CORS
+
+Use `.httpCors(new HttpCors(List.of("https://dashboard.example")))` on `CreateTunnelOptions.builder()`. The full `HttpCors` constructor accepts allowed origins, methods, request headers, exposed response headers, `allowCredentials`, and `maxAge` in seconds.
+
+CORS requires a published HTTP tunnel. Allowed origins must be explicit HTTP(S) origins without paths or wildcards. Omitted method and request-header lists use GET/HEAD/POST and Authorization/Content-Type; credentials are disabled and max age is zero by default. An absent policy preserves upstream CORS. Engine answers valid preflights before request authentication, but every actual request still requires its usual authorization. A preflight does not grant access to the upstream application.

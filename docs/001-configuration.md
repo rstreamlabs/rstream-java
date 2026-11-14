@@ -114,7 +114,7 @@ in `RSTREAM_ENGINE` or the `engine` config field.
 
 ## Unsupported config
 
-The Java SDK v0.1 supports bytestream tunnels. It rejects unsupported transport
+The Java SDK supports bytestream tunnels. It rejects unsupported transport
 or credential storage settings instead of ignoring them:
 
 - QUIC transport.
