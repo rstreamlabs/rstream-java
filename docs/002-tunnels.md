@@ -188,6 +188,44 @@ one to an existing local TCP service. Use it for services that already bind a
 local port. New Java framework integrations should prefer `serveHttp()` when
 the application can handle requests in-process.
 
+The SDK does not automatically recreate a lost control channel/tunnel. The
+application owns supervision: close the old resources, apply bounded backoff and
+create new ones when retry is appropriate. Explicit application shutdown must
+also stop that loop. Authentication/configuration errors should surface rather
+than retry indefinitely, and reconnecting does not replay an application request.
+
+## Creation and HTTP handler options
+
+`CreateTunnelOptions.builder()` preserves unset optional values for Engine policy.
+Set `publish` deliberately. A tunnel name is a private lookup key, not a reserved
+public domain; protocol availability also depends on the Engine and project.
+
+| Builder methods | Meaning and boundary |
+| --- | --- |
+| `name`, `labels` | Stable application lookup/discovery metadata. |
+| `publish`, `type`, `protocol` | Public endpoint or private connection; only bytestreams are implemented here. |
+| `hostname`, `port` | Request a stable published domain or a previously reserved TCP port; does not perform reservation. |
+| `httpVersion`, `upstreamTls` | Upstream HTTP mode; `serveHttp` handles HTTP/1.1. Use forwarding for an existing server, including h2c. HTTP/3 is rejected. |
+| `tokenAuth`, `rstreamAuth`, `challengeMode`, `auth` | Published HTTP request policy. `auth` groups the same flags; agent identity is configured on the client instead. |
+| `httpCors` | Explicit published HTTP browser policy, below. |
+| `tlsMode`, `tlsMinVersion`, `tlsAlpns`, `tlsCiphers`, `mtlsAuth` | Published TLS termination/passthrough and downstream certificate requirements. Passthrough leaves verification policy with the application. |
+| `trustedIps`, `geoIp` | Published source-address/country restrictions enforced by the Engine. |
+| `allowCrossRegionRouting` | Supported private-routing policy override; not client region selection. |
+
+The wire model `TunnelProperties` additionally contains Engine-assigned fields;
+use `CreateTunnelOptions` for inputs. Unsupported combinations fail explicitly.
+`serveHttp` is a bounded direct handler, not a Servlet/MVC server: it buffers the
+request body, invokes `RstreamHttpHandler`, writes one response and closes that
+stream. Framework samples invoke application services/beans directly. Keep the
+framework's full HTTP server and use `forwardTo` when its routing, filters,
+WebSocket or streaming features are required.
+
+`RstreamHttpOptions.builder()` sets `maxHeaderBytes` (default 65536), `maxBodyBytes`
+(default 16777216) and `readTimeout` (default 30 seconds). These are HTTP-parser
+limits, separate from client/control timeouts. `accept(Duration)` and the futures
+allow the application to choose where blocking stream work runs. The SDK's own
+futures use its internal worker pool; there is no client executor injection option.
+
 ## HTTP CORS
 
 Use `.httpCors(new HttpCors(List.of("https://dashboard.example")))` on `CreateTunnelOptions.builder()`. The full `HttpCors` constructor accepts allowed origins, methods, request headers, exposed response headers, `allowCredentials`, and `maxAge` in seconds.

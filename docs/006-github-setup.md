@@ -1,13 +1,9 @@
 # GitHub Setup
 
-The intended public repository is:
-
-```text
-rstreamlabs/rstream-java
-```
-
-Create it as a private repository first, push the initial code, verify CI, then
-make it public after the repository history has been reviewed.
+This maintainer guide configures `rstreamlabs/rstream-java` automation. It is not
+an application setup step: use [Getting started](000-getting-started.md) for the
+published Maven dependency, or [Contributing](../CONTRIBUTING.md) for a source checkout.
+Source checks do not authorize changing repository visibility or publishing a release.
 
 ## Repository settings
 
@@ -27,8 +23,7 @@ from Maven-filtered build metadata.
 ## Maven Central publishing
 
 CI and release-please do not require Maven Central credentials. Publishing uses
-the Central Publisher Portal, not legacy OSSRH. Add publishing secrets only when
-the first public Maven Central release is ready:
+the Central Publisher Portal, not legacy OSSRH. Configure publishing secrets only in the protected release environments:
 
 | Secret | Purpose |
 | --- | --- |
@@ -63,9 +58,9 @@ gpg --armor --export-secret-keys <key-id>
 Store the complete ASCII-armored output, including the `BEGIN` and `END` lines,
 as `GPG_PRIVATE_KEY`.
 
-## Initial push checklist
+## Release review
 
-Before the repository is made public:
+Before proposing stable promotion:
 
 1. Review the complete git history for secrets, tokens, private endpoint URLs,
    generated credentials, and local test artifacts.

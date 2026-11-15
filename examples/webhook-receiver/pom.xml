@@ -5,6 +5,7 @@
   <artifactId>webhook-receiver</artifactId>
   <version>0.6.1-SNAPSHOT</version>
   <properties>
+    <exec.mainClass>io.rstream.examples.WebhookReceiver</exec.mainClass>
     <maven.compiler.release>17</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
@@ -22,7 +23,7 @@
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.7.0</version>
         <configuration>
-          <mainClass>io.rstream.examples.WebhookReceiver</mainClass>
+          <mainClass>${exec.mainClass}</mainClass>
         </configuration>
       </plugin>
     </plugins>

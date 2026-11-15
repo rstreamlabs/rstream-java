@@ -1,14 +1,23 @@
-# Forward local port
+# Forward a local HTTP server
 
-Publishes an existing local TCP or HTTP service through a published rstream HTTP
-tunnel. The example owns the tunnel lifecycle and forwards each accepted stream
-to the local host and port.
+The SDK owns the tunnel and forwards each stream to a local server. This example
+creates an HTTP tunnel: the local service must speak HTTP. Use the TCP creation
+options from [Tunnels](../../docs/002-tunnels.md#create-a-published-tcp-tunnel) for raw TCP.
 
-```bash
-mvn -DskipTests install -f ../../pom.xml
+From the repository root, install the SDK snapshot with `mvn install` and select
+a permitted CLI context as in the [example catalog](../README.md).
+
+In terminal one, start a local HTTP service (this demonstration uses Python 3):
+
+```sh
 python3 -m http.server 8000 --bind 127.0.0.1
-mvn compile exec:java -Dexec.args="127.0.0.1 8000"
 ```
 
-Use the standard rstream config file or environment variables for runtime
-configuration.
+In terminal two, from the repository root:
+
+```sh
+mvn -f examples/forward-local-port/pom.xml compile exec:java -Dexec.args="127.0.0.1 8000"
+```
+
+Open the printed forwarding address to see the local directory response. Stop
+the Java process to close the tunnel, then stop the local server separately.

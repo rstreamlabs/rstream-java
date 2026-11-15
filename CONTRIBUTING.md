@@ -13,7 +13,8 @@ Python, and C++ SDKs.
 
 | Tool | Requirement |
 | --- | --- |
-| JDK | Java 17 or newer, including `javac`; check with `java -version` and `javac -version`. |
+| JDK for SDK/tests | Java 17 or newer, including `javac`; check with `java -version` and `javac -version`. |
+| JDK for formatting | Java 21 or newer: google-java-format 1.36.1 requires it. This does not change the SDK Java 17 runtime baseline. |
 | Maven | 3.9 or newer; `mvn -version` also shows the JDK selected by Maven. |
 | Git and network access | Clone the source and resolve Maven dependencies not already cached. |
 
@@ -31,12 +32,16 @@ To run checkout examples against your edits, use `mvn install` to test and insta
 
 ## Development checks
 
-Run the full local suite before opening a pull request:
+Select JDK 21 or newer for the full contributor checks (verify Maven's JDK with `mvn -version`) before opening a pull request:
 
 ```bash
 mvn spotless:check
 mvn verify
 ```
+
+`mvn verify` also works on JDK 17; the automatic formatting phase is activated
+only on JDK 21+. Do not invoke `spotless:check` with JDK 17. CI separately tests
+SDK behavior on Java 17 and 21.
 
 When a change affects runtime behavior, include the relevant fake-engine or
 real-engine e2e command in the PR description. Public pull requests do not run

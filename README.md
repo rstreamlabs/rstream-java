@@ -2,7 +2,7 @@
 
 rstream makes applications reachable through an outbound connection to an edge, without opening inbound ports on the application host. This SDK creates tunnels and dials private services from a JVM process.
 
-It exposes familiar JDK streams and sockets, with `CompletableFuture` variants for connection and tunnel operations. The core has no application framework dependency, so it can fit an existing service and its executor and resource lifecycle.
+It exposes familiar JDK streams and sockets, with `CompletableFuture` variants for connection and tunnel operations. The core has no application framework dependency, so it can fit an existing service's lifecycle. Futures schedule work on SDK-owned worker threads; applications can compose their continuations without adopting a reactive framework.
 
 Java 17 or newer is required. Integrations are available for Spring Boot, Quarkus, Micronaut and Vert.x, alongside plain JDK examples.
 
@@ -15,7 +15,7 @@ An rstream client connects outbound to the edge. Published tunnels give ordinary
 | HTTP services | Serve HTTP/1.1 directly with `serveHttp()` or forward to a local TCP port. |
 | Stream protocols | Accept bytestreams through `InputStream`, `OutputStream` and `Socket`. |
 | Private connectivity | Dial bytestream tunnels by name or ID. |
-| Async applications | Use futures with the application’s executor and lifecycle. |
+| Async applications | Compose futures and tie closeable resources to the application's lifecycle. |
 | Webhooks | Verify delivery signatures and parse events. |
 
 The engine connection uses TLS. Datagram tunnels, QUIC runtime transport and HTTP/3 tunnel creation are outside this SDK’s current scope. The [SDK guide](https://rstream.io/docs/sdks) compares language integrations and protocol coverage.

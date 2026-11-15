@@ -3,6 +3,8 @@
 Serves HTTP directly from accepted rstream streams. No local HTTP server is
 started.
 
+Use the [catalog setup](../README.md) first. Run this block from the example's own directory; the `../../pom.xml` path selects the SDK root.
+
 ```bash
 mvn -DskipTests install -f ../../pom.xml
 mvn compile exec:java

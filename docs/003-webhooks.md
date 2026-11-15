@@ -81,3 +81,34 @@ change the signed bytes.
 Return a 2xx status only after the event has been persisted or fully handled.
 Use `event.id()` as an idempotency key if the receiver writes state, because a
 delivery can be retried.
+
+## First verified local delivery
+
+No rstream account is required for the synthetic receiver check. From the
+repository root, run `mvn install`, then use two terminals with the same local
+fixture secret (`whsec_local_example`, not a production destination secret).
+
+Terminal one starts the JDK receiver on loopback:
+
+```sh
+RSTREAM_WEBHOOK_SECRET=whsec_local_example \
+mvn -f examples/webhook-receiver/pom.xml compile exec:java
+```
+
+Terminal two sends a freshly signed event using the SDK helper:
+
+```sh
+RSTREAM_WEBHOOK_SECRET=whsec_local_example \
+mvn -f examples/webhook-receiver/pom.xml compile exec:java \
+  -Dexec.mainClass=io.rstream.examples.SendTestWebhook
+```
+
+The sender prints `HTTP 200`; the receiver prints `evt_local_example`. An invalid
+signature returns 400. Use the same sender for Spring/Micronaut receivers on
+`http://127.0.0.1:8080/webhooks/rstream`, or pass a different loopback URL in
+`-Dexec.args`. Do not run several receivers on the same port.
+
+For live local events, `rstream events --webhook --webhook-secret ... --events
+tunnel.created,tunnel.deleted --forward-to http://127.0.0.1:8080/webhooks/rstream`
+uses the same body/signature contract. A durable hosted destination needs an
+intentionally reachable HTTPS receiver and its own stored signing secret.
