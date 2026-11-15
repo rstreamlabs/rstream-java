@@ -38,7 +38,7 @@ implementation("io.rstream:rstream:0.6.0")
 
 ## Serve HTTP through a tunnel
 
-The example uses the [configuration](docs/001-configuration.md) selected with the rstream CLI. Run `rstream login` and `rstream project use my-project-endpoint`, using your own project endpoint. Unattended services can instead use project-scoped credentials or certificate files.
+The example uses the [configuration](docs/001-configuration.md) selected with the [rstream CLI](https://rstream.io/docs/getting-started/installation). Install the CLI, then run `rstream login` and `rstream project use my-project-endpoint`, using your own project endpoint. Unattended services can instead use project-scoped credentials or certificate files.
 
 ```java
 import io.rstream.CreateTunnelOptions;
