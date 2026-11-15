@@ -54,6 +54,11 @@ as `event.object().path("id").asText("")` for resource fields.
 | `project_id` | Tunnel project identifier, when available. |
 | `cluster_id` | Engine cluster identifier, when available. |
 
+Select the four supported event types in the webhook destination's event
+filters. `Webhooks.event()` rejects WebTTY events even when their signatures are
+valid; use a receiver that supports the [service event catalog](https://rstream.io/docs/integrations/webhooks#receiver-compatibility)
+when subscribing to those events.
+
 ## Headers
 
 | Header | Purpose |
