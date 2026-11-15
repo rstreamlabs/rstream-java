@@ -1,6 +1,6 @@
 # Java SDK documentation
 
-Start with the [repository overview](../README.md) for installation and a first application. The integration guides below explain the SDK’s behavior and options.
+Start with the [repository overview](../README.md) to understand the SDK, then [run a first Java application](000-getting-started.md). The integration guides below explain the SDK’s behavior and options.
 
 ## Build an integration
 

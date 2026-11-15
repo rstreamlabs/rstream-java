@@ -28,19 +28,9 @@ Real-engine tests are opt-in so public CI does not depend on a running engine.
 RSTREAM_JAVA_E2E=1 mvn verify
 ```
 
-The tests use the normal SDK configuration flow. They can run against a selected
-CLI context, or against an explicit local engine:
-
-```bash
-RSTREAM_JAVA_E2E=1 \
-RSTREAM_JAVA_E2E_ENGINE=localhost:9443 \
-RSTREAM_JAVA_E2E_NO_TOKEN=1 \
-RSTREAM_JAVA_E2E_TLS_INSECURE=1 \
-mvn verify
-```
-
-Use a local CA instead of insecure TLS when the test engine has a certificate
-available:
+The tests use the normal SDK configuration flow, including a selected CLI
+context. For an explicit local engine, keep certificate verification enabled and
+provide the local CA:
 
 ```bash
 RSTREAM_JAVA_E2E=1 \
@@ -49,6 +39,12 @@ RSTREAM_JAVA_E2E_CA_FILE=/path/to/engine-ca.pem \
 RSTREAM_JAVA_E2E_SERVER_NAME=localhost \
 mvn verify
 ```
+
+The certificate must cover the selected server name. Supply test credentials
+through the usual configuration. `RSTREAM_JAVA_E2E_NO_TOKEN=1` is only for a
+local engine configured to accept unauthenticated clients. For an isolated
+throwaway fixture without a trusted certificate, `RSTREAM_JAVA_E2E_TLS_INSECURE=1`
+disables certificate verification; do not use it with a hosted engine.
 
 The default real-engine matrix validates private tunnel creation, direct HTTP
 serving, local HTTP forwarding, dialing by name and ID, both stream handshake
@@ -77,7 +73,7 @@ hostname that is not directly resolvable from the test process.
 Install the local snapshot before compiling or running examples:
 
 ```bash
-mvn -DskipTests install
+mvn install
 ```
 
 Then run an example module:

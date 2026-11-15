@@ -1,6 +1,8 @@
 # rstream Java SDK
 
-Create tunnels and dial private services from a Java application. The SDK exposes familiar JDK streams and sockets, with `CompletableFuture` variants for connection and tunnel operations. It has no application framework dependency.
+rstream makes applications reachable through an outbound connection to an edge, without opening inbound ports on the application host. This SDK creates tunnels and dials private services from a JVM process.
+
+It exposes familiar JDK streams and sockets, with `CompletableFuture` variants for connection and tunnel operations. The core has no application framework dependency, so it can fit an existing service and its executor and resource lifecycle.
 
 Java 17 or newer is required. Integrations are available for Spring Boot, Quarkus, Micronaut and Vert.x, alongside plain JDK examples.
 
@@ -16,11 +18,11 @@ An rstream client connects outbound to the edge. Published tunnels give ordinary
 | Async applications | Use futures with the application’s executor and lifecycle. |
 | Webhooks | Verify delivery signatures and parse events. |
 
-The engine connection uses TLS. Datagram tunnels, QUIC runtime transport and HTTP/3 tunnel creation are outside this SDK’s current scope. The [Go reference SDK](https://github.com/rstreamlabs/rstream-go) offers broader protocol coverage.
+The engine connection uses TLS. Datagram tunnels, QUIC runtime transport and HTTP/3 tunnel creation are outside this SDK’s current scope. The [SDK guide](https://rstream.io/docs/sdks) compares language integrations and protocol coverage.
 
 ## Install
 
-Add the published SDK from Maven Central:
+Add the published SDK from Maven Central. For a new application, [Run a first Java application](docs/000-getting-started.md) provides a complete Maven project and launch command:
 
 ```xml
 <dependency>
@@ -65,12 +67,13 @@ public final class PublishedTunnel {
 }
 ```
 
-The printed address routes HTTP requests to this process without a local listening port. See the [standalone HTTP example](examples/published-http-server) for a complete Maven project, or use `forwardTo()` for an existing local server.
+Save the class as `PublishedTunnel.java` in the application source tree. The [first-application guide](docs/000-getting-started.md) provides its build and launch setup. The printed address routes HTTP requests to this process without a local listening port. See the [standalone HTTP example](examples/published-http-server) for a complete Maven project, or use `forwardTo()` for an existing local server.
 
 ## Documentation
 
 | Task | Guide |
 | --- | --- |
+| Build and run a first application | [Getting started](docs/000-getting-started.md) |
 | Configure credentials and shared contexts | [Configuration](docs/001-configuration.md) |
 | Create, accept or dial tunnels and manage their lifetime | [Tunnels](docs/002-tunnels.md) |
 | Integrate an application framework | [Examples](examples/README.md) |

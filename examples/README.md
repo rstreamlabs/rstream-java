@@ -1,9 +1,11 @@
-# Examples
+# Java application examples
 
-Install the SDK snapshot before running examples:
+These projects show direct tunnel integration, private dialing and framework-specific HTTP or webhook handling. Start with `published-http-server` for the smallest running service. They consume the SDK snapshot from this checkout, rather than the published Maven Central version.
+
+Use the JDK and Maven prerequisites in [Contributing](../CONTRIBUTING.md). From the repository root, test and install that snapshot before building an example:
 
 ```bash
-mvn -DskipTests install
+mvn install
 ```
 
 | Example | Purpose |
@@ -21,3 +23,15 @@ mvn -DskipTests install
 
 All examples use `RstreamClient.fromEnv()`, so runtime configuration comes from
 the standard rstream config file or environment variables.
+
+## Run the first server
+
+[Install the CLI](https://rstream.io/docs/getting-started/installation), run `rstream login` and select a project with `rstream project use my-project-endpoint`. Replace the endpoint with your project's value. The HTTP example needs permission to publish a tunnel.
+
+From the repository root:
+
+```sh
+mvn -f examples/published-http-server/pom.xml compile exec:java
+```
+
+Open the printed forwarding address while the process is running; it returns the server's hostname. Stop the process with an interrupt. Other examples describe their own target services, framework dependencies and receiving endpoints. Webhook receivers need a signing secret and deliveries to verify, rather than a tunnel connection.

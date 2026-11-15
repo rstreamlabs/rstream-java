@@ -11,11 +11,23 @@ Python, and C++ SDKs.
 
 ## Local setup
 
-Use Java 17 or newer and Maven 3.9 or newer:
+| Tool | Requirement |
+| --- | --- |
+| JDK | Java 17 or newer, including `javac`; check with `java -version` and `javac -version`. |
+| Maven | 3.9 or newer; `mvn -version` also shows the JDK selected by Maven. |
+| Git and network access | Clone the source and resolve Maven dependencies not already cached. |
 
-```bash
+Clone the repository and verify the SDK from its root:
+
+```sh
+git clone https://github.com/rstreamlabs/rstream-java.git
+cd rstream-java
 mvn verify
 ```
+
+This compiles the SDK, generates its protocol classes, runs local tests and writes the JAR under `target/`. It does not require a rstream account or a running engine. The Maven build resolves its Protobuf compiler; a separate system `protoc` is not a prerequisite.
+
+To run checkout examples against your edits, use `mvn install` to test and install the local SDK snapshot in your Maven repository, then follow the [example catalog](examples/README.md). Applications consuming the published SDK use the separate [first-application guide](docs/000-getting-started.md).
 
 ## Development checks
 
