@@ -18,7 +18,7 @@ An rstream client connects outbound to the edge. Published tunnels give ordinary
 | Async applications | Compose futures and tie closeable resources to the application's lifecycle. |
 | Webhooks | Verify delivery signatures and parse events. |
 
-The engine connection uses TLS. Datagram tunnels, QUIC runtime transport and HTTP/3 tunnel creation are outside this SDK’s current scope. The [SDK guide](https://rstream.io/docs/sdks) compares language integrations and protocol coverage.
+The engine connection uses TLS. Datagram tunnels, QUIC runtime transport and HTTP/3 tunnel creation are outside this SDK’s current scope. The [SDK guide](https://rstream.io/sdks) compares language integrations and protocol coverage.
 
 ## Install
 

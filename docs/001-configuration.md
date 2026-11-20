@@ -54,6 +54,7 @@ contexts:
     auth:
       token:
         storage:
+          kind: inline
           value: eyJ...
 ```
 
