@@ -16,6 +16,12 @@
   </properties>
   <dependencyManagement>
     <dependencies>
+      <!-- Match the Protobuf runtime used to generate the rstream SDK. -->
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-java</artifactId>
+        <version>4.36.2</version>
+      </dependency>
       <dependency>
         <groupId>${quarkus.platform.group-id}</groupId>
         <artifactId>${quarkus.platform.artifact-id}</artifactId>

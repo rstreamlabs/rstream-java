@@ -7,11 +7,8 @@ options from [Tunnels](../../docs/002-tunnels.md#create-a-published-tcp-tunnel) 
 From the repository root, install the SDK snapshot with `mvn install` and select
 a permitted CLI context as in the [example catalog](../README.md).
 
-In terminal one, start a local HTTP service (this demonstration uses Python 3):
-
-```sh
-python3 -m http.server 8000 --bind 127.0.0.1
-```
+Start the [loopback origin](../../docs/tunnels/000-http-applications.md#keep-an-existing-http-server)
+on port 8000 or use an existing HTTP service.
 
 In terminal two, from the repository root:
 
@@ -19,5 +16,5 @@ In terminal two, from the repository root:
 mvn -f examples/forward-local-port/pom.xml compile exec:java -Dexec.args="127.0.0.1 8000"
 ```
 
-Open the printed forwarding address to see the local directory response. Stop
+Open the printed forwarding address to see the local HTTP response. Stop
 the Java process to close the tunnel, then stop the local server separately.

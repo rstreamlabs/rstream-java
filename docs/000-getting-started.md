@@ -1,6 +1,9 @@
 # Run a first Java application
 
-This path creates a small application using the published SDK, rather than building the SDK repository. The application serves HTTP directly through an rstream tunnel and prints the address used to reach it. It needs Java 17 or newer, Maven 3.9 or newer, and a rstream project that permits a published HTTP tunnel.
+Build a first HTTP application with the published SDK, or use a checkout
+to test source changes and run the framework examples. Both use Java 17
+or newer. The Maven commands need Maven 3.9 or newer. To exercise a
+published service, use a context that permits HTTP publication.
 
 ## Configure access
 
@@ -8,10 +11,11 @@ Install the [rstream CLI](https://rstream.io/docs/getting-started/installation),
 
 ```sh
 rstream login
+rstream project list
 rstream project use my-project-endpoint
 ```
 
-Replace the endpoint with the value from the project dashboard. `RstreamClient.fromEnv()` reads that selected context. Services can use explicit credentials instead; [Configuration](001-configuration.md) describes those choices. Do not copy a personal login context into a deployed service.
+Replace the endpoint with the value shown by `rstream project list`. `RstreamClient.fromEnv()` reads that selected context. Services can use explicit credentials instead; [Configuration](001-configuration.md) describes those choices. Use a provisioned identity for a deployed service.
 
 ## Create the application
 
@@ -69,7 +73,29 @@ Copy the complete [README HTTP program](../README.md#serve-http-through-a-tunnel
 mvn compile exec:java
 ```
 
-Open the printed forwarding address. A request returns `Hello from rstream`; no local TCP listening port is involved. Keep the process running while making requests and stop it with an interrupt.
+Open the printed HTTPS forwarding address. Expect HTTP 200 and
+`Hello from rstream`. Use the [required caller credential](https://rstream.io/docs/tunnels/http-tunnels/authentication)
+for a protected endpoint. With a private CA, trust it in your HTTP
+client and use the printed hostname. Stop the console process with
+Ctrl+C.
+
+## Build the checkout
+
+Clone the repository to build and test the SDK itself. Maven resolves
+and runs the Protobuf compiler, so the normal build needs the JDK and
+Maven.
+
+```sh
+git clone https://github.com/rstreamlabs/rstream-java.git
+cd rstream-java
+mvn install
+```
+
+This runs local checks and installs the checkout's SDK snapshot in
+your Maven cache. It needs no Engine. Select the context described above
+and run a program from the [example catalog](../examples/README.md).
+For formatting and contribution checks, use the JDK specified in
+[Contributing](../CONTRIBUTING.md#local-setup).
 
 ## Continue the integration
 

@@ -2,17 +2,16 @@
 
 These projects show direct tunnel integration, private dialing and framework-specific HTTP or webhook handling. Start with `published-http-server` for the smallest running service. They consume the SDK snapshot from this checkout, rather than the published Maven Central version.
 
-Use the JDK and Maven prerequisites in [Contributing](../CONTRIBUTING.md). From the repository root, test and install that snapshot before building an example:
-
-```bash
-mvn install
-```
+[Build and install the SDK snapshot](../docs/000-getting-started.md#build-the-checkout).
+Use the Maven commands from the repository root. Tunnel examples need a
+context that allows publication or private dialing. Webhook examples
+verify signed deliveries locally without an Engine.
 
 | Example | Purpose |
 | --- | --- |
 | [published-http-server](published-http-server) | Serve HTTP directly from accepted rstream streams. |
 | [forward-local-port](forward-local-port) | Publish an already running local TCP or HTTP service through forwarding. |
-| [private-dial](private-dial) | Dial a private tunnel by name or ID. |
+| [private-dial](private-dial) | Send an HTTP request to a private tunnel by name or ID. |
 | [webhook-receiver](webhook-receiver) | Verify webhook deliveries with only JDK APIs. |
 | [spring-boot-published-http](spring-boot-published-http) | Serve Spring Boot application code directly from rstream streams. |
 | [spring-boot-webhook-receiver](spring-boot-webhook-receiver) | Verify webhook deliveries inside a Spring Boot controller. |
@@ -21,7 +20,7 @@ mvn install
 | [micronaut-webhook-receiver](micronaut-webhook-receiver) | Verify webhook deliveries inside a Micronaut controller. |
 | [vertx-published-http](vertx-published-http) | Serve Vert.x application code without blocking the event loop. |
 
-All examples use `RstreamClient.fromEnv()`, so runtime configuration comes from
+Tunnel examples use `RstreamClient.fromEnv()`, so runtime configuration comes from
 the standard rstream config file or environment variables.
 
 ## Run the first server

@@ -14,6 +14,12 @@
   </properties>
   <dependencyManagement>
     <dependencies>
+      <!-- Match the Protobuf runtime used to generate the rstream SDK. -->
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-java</artifactId>
+        <version>4.36.2</version>
+      </dependency>
       <dependency>
         <groupId>io.micronaut.platform</groupId>
         <artifactId>micronaut-platform</artifactId>

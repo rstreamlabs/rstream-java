@@ -1,21 +1,19 @@
-# Java SDK documentation
+# Java SDK guides
 
-Start with the [repository overview](../README.md) to understand the SDK, then [run a first Java application](000-getting-started.md). The integration guides below explain the SDK’s behavior and options.
+The Java SDK brings rstream tunnels into JVM services using JDK sockets
+and streams. Choose an application boundary, then configure how the
+service connects and owns its resources.
 
-## Build an integration
+| Start here | Guide |
+| --- | --- |
+| Add a release or build the checkout | [Run a first Java application](000-getting-started.md). |
+| Serve HTTP, accept streams or forward to a local service | [Choose a tunnel integration](002-tunnels.md). |
+| Find a plain JDK or framework application | [Example catalog](../examples/README.md). |
 
-| Guide                                 | Use it to                                                           |
-| ------------------------------------- | ------------------------------------------------------------------- |
-| [Configuration](001-configuration.md) | Select a context, credentials and an engine.                        |
-| [Tunnels](002-tunnels.md)             | Create published services, accept streams and dial private tunnels. |
-| [Examples](../examples/README.md)     | Start from a runnable integration for your application.             |
-| [Webhooks](003-webhooks.md)           | Verify and process lifecycle notifications.                         |
+| Task | Guide |
+| --- | --- |
+| Set credentials, Engine and CA trust | [Configuration](001-configuration.md). |
+| Compose futures and stop a service | [Lifecycle and futures](tunnels/002-lifecycle.md). |
+| Verify lifecycle notifications | [Webhooks](003-webhooks.md). |
 
-## Develop the SDK
-
-| Guide                                           | Scope                                              |
-| ----------------------------------------------- | -------------------------------------------------- |
-| [Contributing](../CONTRIBUTING.md)              | Local setup, style and change expectations.        |
-| [Testing](004-testing.md)                       | Unit, local fixture and opt-in real-engine checks. |
-| [Compatibility matrix](005-test-matrix.md)      | Runtime and platform coverage.                     |
-| [Repository automation](006-ci-and-releases.md) | Maintainer CI and release configuration.           |
+[Contributing](../CONTRIBUTING.md) covers SDK build, changes and tests.

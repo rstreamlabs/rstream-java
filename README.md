@@ -4,7 +4,7 @@ rstream makes applications reachable through an outbound connection to an edge, 
 
 It exposes familiar JDK streams and sockets, with `CompletableFuture` variants for connection and tunnel operations. The core has no application framework dependency, so it can fit an existing service's lifecycle. Futures schedule work on SDK-owned worker threads; applications can compose their continuations without adopting a reactive framework.
 
-Java 17 or newer is required. Integrations are available for Spring Boot, Quarkus, Micronaut and Vert.x, alongside plain JDK examples.
+Java 17 or newer is required. The examples show plain JDK applications and how to use the SDK with Spring Boot, Quarkus, Micronaut and Vert.x.
 
 ## Where this SDK fits
 
@@ -78,7 +78,7 @@ Save the class as `PublishedTunnel.java` in the application source tree. The [fi
 | Create, accept or dial tunnels and manage their lifetime | [Tunnels](docs/002-tunnels.md) |
 | Integrate an application framework | [Examples](examples/README.md) |
 | Verify lifecycle notifications | [Webhooks](docs/003-webhooks.md) |
-| Find advanced options and development checks | [Documentation index](docs/README.md) |
+| Find the complete guide index | [Documentation index](docs/README.md) |
 | Contribute | [Contributing](CONTRIBUTING.md) and [coding style](CODING_STYLE.md) |
 
 ## Security and support

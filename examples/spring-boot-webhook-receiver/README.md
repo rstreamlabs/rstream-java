@@ -13,7 +13,7 @@ mvn -DskipTests install
 Run the receiver:
 
 ```bash
-RSTREAM_WEBHOOK_SECRET=whsec_test \
+RSTREAM_WEBHOOK_SECRET=whsec_local_example \
 mvn -f examples/spring-boot-webhook-receiver/pom.xml spring-boot:run
 ```
 

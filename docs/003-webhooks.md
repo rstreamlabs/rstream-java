@@ -103,12 +103,22 @@ mvn -f examples/webhook-receiver/pom.xml compile exec:java \
   -Dexec.mainClass=io.rstream.examples.SendTestWebhook
 ```
 
-The sender prints `HTTP 200`; the receiver prints `evt_local_example`. An invalid
-signature returns 400. Use the same sender for Spring/Micronaut receivers on
+The sender prints `HTTP 200`. The JDK receiver logs `evt_local_example`;
+the Spring and Micronaut receivers return it in the response body. An
+invalid signature returns 400. Use the same sender for Spring/Micronaut receivers on
 `http://127.0.0.1:8080/webhooks/rstream`, or pass a different loopback URL in
 `-Dexec.args`. Do not run several receivers on the same port.
 
-For live local events, `rstream events --webhook --webhook-secret ... --events
-tunnel.created,tunnel.deleted --forward-to http://127.0.0.1:8080/webhooks/rstream`
-uses the same body/signature contract. A durable hosted destination needs an
-intentionally reachable HTTPS receiver and its own stored signing secret.
+To receive live local events, keep the receiver running. In a second terminal,
+select a project with access to its tunnel events and use the same signing secret
+as the receiver.
+
+```sh
+rstream events --webhook --webhook-secret whsec_local_example \
+  --events tunnel.created,tunnel.deleted \
+  --forward-to http://127.0.0.1:8080/webhooks/rstream
+```
+
+Create and stop a [tunnel](000-getting-started.md#create-the-application)
+under that project to see the receiver log the events. For a hosted destination,
+use a reachable HTTPS receiver and keep its signing secret in a secret store.

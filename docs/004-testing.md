@@ -18,7 +18,7 @@ The default suite includes:
 JaCoCo coverage is enforced on maintained SDK code. Generated Protobuf classes
 are excluded from the coverage threshold.
 
-See [005-test-matrix.md](005-test-matrix.md) for the pre-release coverage matrix.
+See [test coverage](../src/test/README.md) for the pre-release coverage matrix.
 
 ## Real-engine e2e
 

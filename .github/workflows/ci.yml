@@ -33,7 +33,7 @@ jobs:
         shell: bash
         run: mvn -B verify
   examples:
-    name: Compile examples
+    name: Check examples
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -47,10 +47,10 @@ jobs:
       - name: Install SDK snapshot
         shell: bash
         run: mvn -B install
-      - name: Compile examples
+      - name: Check examples
         shell: bash
         run: |
           set -euo pipefail
           for pom in examples/*/pom.xml; do
-            mvn -B -f "$pom" compile
+            mvn -B -f "$pom" test
           done

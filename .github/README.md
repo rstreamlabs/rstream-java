@@ -1,7 +1,7 @@
 # CI and releases
 
 This maintainer guide configures `rstreamlabs/rstream-java` CI and publishing.
-Applications start with [Getting started](000-getting-started.md); SDK contributors
+Applications start with [Getting started](../docs/000-getting-started.md); SDK contributors
 start with [Contributing](../CONTRIBUTING.md).
 Source checks do not authorize changing repository visibility or publishing a release.
 

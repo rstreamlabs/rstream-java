@@ -67,7 +67,7 @@ Use the smallest test that exercises the behavior:
 - fake-engine integration tests for runtime control-channel and stream behavior;
 - opt-in e2e tests for real engines and managed environments.
 
-See [docs/004-testing.md](docs/004-testing.md) for the e2e matrix.
+See [Testing](docs/004-testing.md) for commands, the [test coverage](src/test/README.md) for suite scope and [repository automation](.github/README.md) for releases.
 
 ## Generated code
 
