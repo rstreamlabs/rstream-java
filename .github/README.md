@@ -1,20 +1,16 @@
-# GitHub Setup
+# CI and releases
 
-The intended public repository is:
-
-```text
-rstreamlabs/rstream-java
-```
-
-Create it as a private repository first, push the initial code, verify CI, then
-make it public after the repository history has been reviewed.
+This maintainer guide configures `rstreamlabs/rstream-java` CI and publishing.
+Applications start with [Getting started](../docs/000-getting-started.md); SDK contributors
+start with [Contributing](../CONTRIBUTING.md).
+Source checks do not authorize changing repository visibility or publishing a release.
 
 ## Repository settings
 
-| Type | Name | Purpose |
-| --- | --- | --- |
-| Repository variable | `CI_ALLOWED_ACTOR` | GitHub login allowed to run release-please on `main`. |
-| Repository secret | `RELEASE_PLEASE_TOKEN` | Token used by release-please to create and update release PRs. |
+| Type                | Name                   | Purpose                                                        |
+| ------------------- | ---------------------- | -------------------------------------------------------------- |
+| Repository variable | `CI_ALLOWED_ACTOR`     | GitHub login allowed to run release-please on `main`.          |
+| Repository secret   | `RELEASE_PLEASE_TOKEN` | Token used by release-please to create and update release PRs. |
 
 Add `RELEASE_PLEASE_TOKEN` before setting `CI_ALLOWED_ACTOR`. If that variable
 is missing, the release-please workflow is skipped and normal CI still runs.
@@ -27,15 +23,14 @@ from Maven-filtered build metadata.
 ## Maven Central publishing
 
 CI and release-please do not require Maven Central credentials. Publishing uses
-the Central Publisher Portal, not legacy OSSRH. Add publishing secrets only when
-the first public Maven Central release is ready:
+the Central Publisher Portal, not legacy OSSRH. Configure publishing secrets only in the protected release environments:
 
-| Secret | Purpose |
-| --- | --- |
-| `MAVEN_CENTRAL_USERNAME` | Sonatype Central Portal token username. |
-| `MAVEN_CENTRAL_PASSWORD` | Sonatype Central Portal token password. |
-| `GPG_PRIVATE_KEY` | ASCII-armored signing key used for release artifacts. |
-| `GPG_PASSPHRASE` | Passphrase for the signing key. |
+| Secret                   | Purpose                                               |
+| ------------------------ | ----------------------------------------------------- |
+| `MAVEN_CENTRAL_USERNAME` | Sonatype Central Portal token username.               |
+| `MAVEN_CENTRAL_PASSWORD` | Sonatype Central Portal token password.               |
+| `GPG_PRIVATE_KEY`        | ASCII-armored signing key used for release artifacts. |
+| `GPG_PASSPHRASE`         | Passphrase for the signing key.                       |
 
 Create an environment named `maven-central` in GitHub for the signing secrets.
 Create a separate `stable-release` environment for publishing credentials and
@@ -63,9 +58,9 @@ gpg --armor --export-secret-keys <key-id>
 Store the complete ASCII-armored output, including the `BEGIN` and `END` lines,
 as `GPG_PRIVATE_KEY`.
 
-## Initial push checklist
+## Release review
 
-Before the repository is made public:
+Before proposing stable promotion:
 
 1. Review the complete git history for secrets, tokens, private endpoint URLs,
    generated credentials, and local test artifacts.

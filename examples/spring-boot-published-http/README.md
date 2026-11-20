@@ -16,5 +16,8 @@ Run the application with the same configuration used by the CLI:
 mvn -f examples/spring-boot-published-http/pom.xml spring-boot:run
 ```
 
-The example prints the forwarding address after the tunnel is created. Set
-`RSTREAM_TUNNEL_NAME` to choose a stable tunnel name for repeated local runs.
+Request the printed forwarding address. The JSON identifies Spring Boot and
+includes the server's hostname. Stop the process with Ctrl+C.
+Set `RSTREAM_TUNNEL_NAME` to reuse a tunnel name across runs.
+Choose a [stable domain](https://rstream.io/docs/tunnels/stable-domains) if
+you need a persistent public address.

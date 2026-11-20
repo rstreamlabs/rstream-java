@@ -1,108 +1,46 @@
-# rstream-java
+# rstream Java SDK
 
-`rstream-java` is the Java SDK for rstream tunnels and webhook receivers. It is
-framework-free, blocking at the public stream boundary, asynchronous internally,
-and uses the same runtime protocol and configuration model as the Go,
-JavaScript, Python, and C++ SDKs.
+rstream makes applications reachable through an outbound connection to an edge, without opening inbound ports on the application host. This SDK creates tunnels and dials private services from a JVM process.
 
-The SDK is designed for Java services that need to publish local or private
-services through rstream, dial private tunnels, accept tunnel streams directly,
-or verify rstream webhook deliveries in a backend without coupling the core SDK
-to Spring, Jakarta EE, Micronaut, Quarkus, or another application framework.
+It exposes familiar JDK streams and sockets, with `CompletableFuture` variants for connection and tunnel operations. The core has no application framework dependency, so it can fit an existing service's lifecycle. Futures schedule work on SDK-owned worker threads; applications can compose their continuations without adopting a reactive framework.
 
-The primary stream API is intentionally close to the JDK networking model:
-`RstreamStream` exposes `InputStream`, `OutputStream`, and the underlying
-`Socket`. Operations that can wait on the engine also have `CompletableFuture`
-variants (`connectAsync`, `createTunnelAsync`, `dialAsync`, `acceptAsync`,
-`closeTunnelAsync`) so server applications can integrate them into their own
-executor, servlet, worker, or framework lifecycle.
+Java 17 or newer is required. The examples show plain JDK applications and how to use the SDK with Spring Boot, Quarkus, Micronaut and Vert.x.
 
-## SDK Surface
+## Where this SDK fits
 
-This repository targets Java 17 and newer.
+An rstream client connects outbound to the edge. Published tunnels give ordinary clients a forwarding address; private tunnels are reached by name or ID through an authenticated rstream client.
 
-The first public release focuses on the Java-native surface that is ready for
-production use:
-
-| Area | Supported |
+| Integration | Java support |
 | --- | --- |
-| Runtime client | Control-channel client with async helpers |
-| Published tunnels | HTTP/1.1 bytestream tunnels |
-| Private tunnels | By name or ID through `RstreamClient.dial()` |
-| Local forwarding | `BytestreamTunnel.forwardTo(host, port)` |
-| Direct accept | Blocking `accept()`, timed `accept(...)`, and `acceptAsync()` |
-| Direct HTTP handler | `BytestreamTunnel.serveHttp(handler)` |
-| Webhooks | Signature generation, verification, and event parsing |
-| Config | CLI-compatible YAML config and environment variables |
+| HTTP services | Serve HTTP/1.1 directly with `serveHttp()` or forward to a local TCP port. |
+| Stream protocols | Accept bytestreams through `InputStream`, `OutputStream` and `Socket`. |
+| Private connectivity | Dial bytestream tunnels by name or ID. |
+| Async applications | Compose futures and tie closeable resources to the application's lifecycle. |
+| Webhooks | Verify delivery signatures and parse events. |
 
-Datagram tunnels, QUIC runtime transport, HTTP/3 tunnel creation, custom
-transport proxies, and external credential stores are rejected explicitly by
-this SDK version instead of being ignored.
+The engine connection uses TLS. Datagram tunnels, QUIC runtime transport and HTTP/3 tunnel creation are outside this SDK’s current scope. The [SDK guide](https://rstream.io/sdks) compares language integrations and protocol coverage.
 
 ## Install
 
-Maven:
+Add the published SDK from Maven Central. For a new application, [Run a first Java application](docs/000-getting-started.md) provides a complete Maven project and launch command:
 
 ```xml
 <dependency>
   <groupId>io.rstream</groupId>
   <artifactId>rstream</artifactId>
-  <version>0.1.0</version>
+  <version>0.6.0</version>
 </dependency>
 ```
 
-Gradle:
+For Gradle Kotlin DSL:
 
 ```kotlin
-implementation("io.rstream:rstream:0.1.0")
+implementation("io.rstream:rstream:0.6.0")
 ```
 
-Until the first public artifact is published, install the local snapshot from
-this repository:
+## Serve HTTP through a tunnel
 
-```bash
-mvn -DskipTests install
-```
-
-## Configuration
-
-The SDK reads the same config file as the CLI by default:
-
-```text
-~/.rstream/config.yaml
-```
-
-Configuration is resolved in this order:
-
-1. Explicit `ClientOptions` values.
-2. Environment variables.
-3. The selected context in the config file.
-4. SDK defaults.
-
-## Environment variables
-
-These variables follow the shared configuration model used by the other rstream
-SDKs:
-
-| Variable | Purpose |
-| --- | --- |
-| `RSTREAM_CONFIG` | Override the config file path. |
-| `RSTREAM_CONTEXT` | Select a context from the config file. |
-| `RSTREAM_ENGINE` | Use an explicit engine host and optional port. |
-| `RSTREAM_AUTHENTICATION_TOKEN` | Use an explicit authentication token. |
-| `RSTREAM_MTLS_CERT_FILE` | Client certificate file for mTLS authentication. |
-| `RSTREAM_MTLS_KEY_FILE` | Client private key file for mTLS authentication. |
-| `RSTREAM_API_URL` | Control plane API URL for managed project discovery. |
-| `RSTREAM_REGION` | Authorized region to select for a managed project. |
-| `RSTREAM_CONTROL_PLANE_HEADERS` | Additional Control plane request headers encoded as a JSON object. |
-
-`RSTREAM_ENGINE_ADDRESS` is also accepted for compatibility with older local
-SDK workflows. Prefer `RSTREAM_ENGINE` in new code.
-
-See [docs/001-configuration.md](docs/001-configuration.md) for supported YAML fields and
-error behavior.
-
-## Published HTTP tunnel
+The example uses the [configuration](docs/001-configuration.md) selected with the [rstream CLI](https://rstream.io/docs/getting-started/installation). Install the CLI, then run `rstream login` and `rstream project use my-project-endpoint`, using your own project endpoint. Unattended services can instead use project-scoped credentials or certificate files.
 
 ```java
 import io.rstream.CreateTunnelOptions;
@@ -110,133 +48,39 @@ import io.rstream.HttpVersion;
 import io.rstream.RstreamClient;
 import io.rstream.RstreamHttpResponse;
 import io.rstream.TunnelProtocol;
-import java.net.InetAddress;
 
 public final class PublishedTunnel {
   public static void main(String[] args) throws Exception {
     try (var client = RstreamClient.fromEnv();
-        var control = client.connect()) {
-      var tunnel =
-          control.createTunnel(
-              CreateTunnelOptions.builder()
-                  .protocol(TunnelProtocol.HTTP)
-                  .httpVersion(HttpVersion.HTTP_1_1)
-                  .publish(true)
-                  .build());
-      System.out.println("Forwarding address: " + tunnel.forwardingAddress());
-      tunnel
-          .serveHttp(
-              request -> RstreamHttpResponse.text(200, InetAddress.getLocalHost().getHostName()))
-          .join();
+        var control = client.connect();
+        var tunnel =
+            control.createTunnel(
+                CreateTunnelOptions.builder()
+                    .protocol(TunnelProtocol.HTTP)
+                    .httpVersion(HttpVersion.HTTP_1_1)
+                    .publish(true)
+                    .build())) {
+      System.out.println(tunnel.forwardingAddress());
+      tunnel.serveHttp(request -> RstreamHttpResponse.text(200, "Hello from rstream")).join();
     }
   }
 }
 ```
 
-`serveHttp()` accepts rstream streams and invokes the handler in the process.
-`forwardTo()` remains available for existing services that already bind a local
-TCP port.
+Save the class as `PublishedTunnel.java` in the application source tree. The [first-application guide](docs/000-getting-started.md) provides its build and launch setup. The printed address routes HTTP requests to this process without a local listening port. See the [standalone HTTP example](examples/published-http-server) for a complete Maven project, or use `forwardTo()` for an existing local server.
 
-The control channel uses a negotiated heartbeat deadline. A missed deadline or
-an unexpected control-transport EOF closes tunnel admission immediately, while
-streams already returned by `accept()` and active `forwardTo()` relays keep
-their independent payload sockets and drain normally. This prevents a
-transient or asymmetric control-path outage from interrupting an established
-application session. Explicit tunnel/control closure and protocol revocation
-remain hard lifecycle operations enforced by the engine. Treat stream EOF or
-I/O failure—not `control.done()`—as the payload-lifecycle signal.
+## Documentation
 
-## Private dial
-
-```java
-import io.rstream.RstreamClient;
-import java.nio.charset.StandardCharsets;
-
-public final class PrivateDial {
-  public static void main(String[] args) throws Exception {
-    var target = args.length == 0 ? "private-api" : args[0];
-    try (var client = RstreamClient.fromEnv();
-        var stream = client.dial(target)) {
-      stream.outputStream().write("ping".getBytes(StandardCharsets.UTF_8));
-      stream.outputStream().flush();
-      System.out.println(new String(stream.inputStream().readNBytes(4), StandardCharsets.UTF_8));
-    }
-  }
-}
-```
-
-Private tunnels are addressed by name or ID. They do not expose a public
-forwarding address.
-
-## Webhook receiver
-
-```java
-import io.rstream.Webhooks;
-import java.nio.charset.StandardCharsets;
-
-byte[] payload = requestBodyBytes;
-String signature = requestHeaders.get("rstream-signature");
-String secret = System.getenv("RSTREAM_WEBHOOK_SECRET");
-
-var event = Webhooks.event(payload, signature, secret);
-var resourceId = event.object().path("id").asText("");
-if (event.type().wireValue().equals("tunnel.created")) {
-  System.out.println("Tunnel is online: " + resourceId);
-}
-```
-
-`event.id()` is suitable for idempotency. Keep the raw request body unchanged
-when verifying the signature.
-
-See [docs/003-webhooks.md](docs/003-webhooks.md) for the payload shape and headers.
-
-## Examples
-
-| Example | Purpose |
+| Task | Guide |
 | --- | --- |
-| [examples/published-http-server](examples/published-http-server) | Serve HTTP directly from accepted rstream streams. |
-| [examples/forward-local-port](examples/forward-local-port) | Publish an existing local TCP service through forwarding. |
-| [examples/private-dial](examples/private-dial) | Dial a private tunnel by name or ID. |
-| [examples/webhook-receiver](examples/webhook-receiver) | Verify webhook deliveries with the JDK HTTP server. |
-| [examples/spring-boot-published-http](examples/spring-boot-published-http) | Serve Spring Boot application code directly from rstream streams. |
-| [examples/spring-boot-webhook-receiver](examples/spring-boot-webhook-receiver) | Verify webhook deliveries inside a Spring Boot controller. |
-| [examples/quarkus-published-http](examples/quarkus-published-http) | Serve Quarkus CDI application code directly from rstream streams. |
-| [examples/micronaut-published-http](examples/micronaut-published-http) | Serve Micronaut application code directly from rstream streams. |
-| [examples/micronaut-webhook-receiver](examples/micronaut-webhook-receiver) | Verify webhook deliveries inside a Micronaut controller. |
-| [examples/vertx-published-http](examples/vertx-published-http) | Serve Vert.x application code without blocking the event loop. |
+| Build and run a first application | [Getting started](docs/000-getting-started.md) |
+| Configure credentials and shared contexts | [Configuration](docs/001-configuration.md) |
+| Create, accept or dial tunnels and manage their lifetime | [Tunnels](docs/002-tunnels.md) |
+| Integrate an application framework | [Examples](examples/README.md) |
+| Verify lifecycle notifications | [Webhooks](docs/003-webhooks.md) |
+| Find the complete guide index | [Documentation index](docs/README.md) |
+| Contribute | [Contributing](CONTRIBUTING.md) and [coding style](CODING_STYLE.md) |
 
-## Development
+## Security and support
 
-```bash
-mvn spotless:check
-mvn verify
-```
-
-Real-engine tests are opt-in:
-
-```bash
-RSTREAM_JAVA_E2E=1 mvn verify
-```
-
-See [docs/004-testing.md](docs/004-testing.md) for local-engine and managed-environment
-test commands.
-
-## Repository setup and release
-
-The intended GitHub repository is `rstreamlabs/rstream-java`. CI requires no
-secret for normal pull request checks. Release automation uses release-please and
-requires the maintainer-managed `RELEASE_PLEASE_TOKEN` secret plus the
-`CI_ALLOWED_ACTOR` repository variable.
-
-See [docs/006-github-setup.md](docs/006-github-setup.md) before creating or publishing
-the repository.
-
-## License
-
-Apache-2.0. See [LICENSE](LICENSE).
-
-## HTTP CORS
-
-Use `.httpCors(new HttpCors(List.of("https://dashboard.example")))` on `CreateTunnelOptions.builder()`. The full `HttpCors` constructor accepts allowed origins, methods, request headers, exposed response headers, `allowCredentials`, and `maxAge` in seconds.
-
-CORS requires a published HTTP tunnel. Allowed origins must be explicit HTTP(S) origins without paths or wildcards. Omitted method and request-header lists use GET/HEAD/POST and Authorization/Content-Type; credentials are disabled and max age is zero by default. An absent policy preserves upstream CORS. Engine answers valid preflights before request authentication, but every actual request still requires its usual authorization. A preflight does not grant access to the upstream application.
+Report vulnerabilities privately as described in [Security](SECURITY.md). For usage questions and reproducible bugs, open a [GitHub issue](https://github.com/rstreamlabs/rstream-java/issues) with secrets and customer details removed. Licensed under [Apache-2.0](LICENSE).

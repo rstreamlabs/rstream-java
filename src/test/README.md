@@ -1,5 +1,9 @@
 # Test matrix
 
+The CI matrix runs JDK 17 and 21 on Linux, macOS and Windows; framework examples
+compile on JDK 21. SDK source targets Java 17. Formatting uses JDK 21+ separately
+from the runtime baseline. See `.github/workflows/ci.yml` and `pom.xml`.
+
 The Java SDK is validated through four layers: unit tests, fake-engine integration
 tests, real-engine e2e tests, and example compilation/runtime checks.
 

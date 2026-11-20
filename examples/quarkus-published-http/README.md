@@ -16,4 +16,6 @@ Run the application with the same configuration used by the CLI:
 mvn -f examples/quarkus-published-http/pom.xml quarkus:dev
 ```
 
+Request the printed forwarding address. The JSON identifies Quarkus and
+includes the server's hostname. Stop the process with Ctrl+C.
 Set `RSTREAM_TUNNEL_NAME` to choose the tunnel name.
