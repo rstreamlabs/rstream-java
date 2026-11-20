@@ -13,3 +13,4 @@ mvn compile exec:java
 Configure the engine, project, and authentication through the standard rstream
 config file or environment variables. The printed forwarding address should
 return the hostname while the process is running.
+Stop the process with Ctrl+C.

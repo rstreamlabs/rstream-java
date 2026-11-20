@@ -59,7 +59,7 @@ public domain; protocol availability also depends on the Engine and project.
 | `httpCors` | Explicit published HTTP browser policy, below. |
 | `tlsMode`, `tlsMinVersion`, `tlsAlpns`, `tlsCiphers`, `mtlsAuth` | Published TLS termination/passthrough and downstream certificate requirements. Passthrough leaves verification policy with the application. |
 | `trustedIps`, `geoIp` | Published source-address/country restrictions enforced by the Engine. |
-| `allowCrossRegionRouting` | Supported private-routing policy override; not client region selection. |
+| `allowCrossRegionRouting` | Override the cross-region routing policy for an eligible published or private tunnel. Select the client's region separately. |
 
 The wire model `TunnelProperties` additionally contains Engine-assigned fields;
 use `CreateTunnelOptions` for inputs. Unsupported combinations fail explicitly.
@@ -69,9 +69,15 @@ stream. Framework samples invoke application services/beans directly. Keep the
 framework's full HTTP server and use `forwardTo` to retain its routing and
 filters. For WebSocket upgrades, choose a compatible Engine HTTP mode.
 
-`RstreamHttpOptions.builder()` sets `maxHeaderBytes` (default 65536), `maxBodyBytes`
-(default 16777216) and `readTimeout` (default 30 seconds). These are HTTP-parser
-limits, separate from client/control timeouts. `accept(Duration)` and the futures
+`RstreamHttpOptions.builder()` sets the HTTP request limits:
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `maxHeaderBytes` | 64 KiB | Maximum header bytes. |
+| `maxBodyBytes` | 16 MiB | Maximum body bytes. |
+| `readTimeout` | 30 seconds | Timeout for each blocking socket read. |
+
+Set connection and control deadlines on the client. `accept(Duration)` and the futures
 allow the application to choose where blocking stream work runs. The SDK's own
 futures use its internal worker pool; there is no client executor injection option.
 

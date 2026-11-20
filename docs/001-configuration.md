@@ -148,10 +148,12 @@ application lifetime and use try-with-resources for its controls and streams.
 | `tls` | verified system trust | `TlsOptions.builder()` for trust and certificate identity. |
 
 `TlsOptions` supports `caFile`, `serverName`, `certFile`, `keyFile` and
-`insecureSkipVerify` (default false). A CA file adds trust for a private Engine;
-serverName sets both SNI and the intended verification name. The file certificate
-and unencrypted PKCS#8 key must be a pair. Keep verification enabled outside
-isolated synthetic fixtures. Deployed services need their own project-scoped
+`insecureSkipVerify` (default false). When you set `caFile`, its certificates
+replace the JDK's default trust anchors for the Engine connection.
+`serverName` sets the verification identity and sends SNI for a DNS name.
+The file certificate and unencrypted PKCS#8 key must be a pair.
+Keep verification enabled outside isolated synthetic fixtures.
+Deployed services need their own project-scoped
 identity; do not copy a developer's personal CLI config.
 
 Transport selection is an environment/YAML setting in this Java API, not a

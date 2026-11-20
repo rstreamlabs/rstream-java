@@ -5,6 +5,9 @@ request body against the `rstream-signature` header and returns a parsed event.
 
 ## JDK HTTP receiver
 
+This loopback example illustrates signature verification. For a reachable
+receiver, enforce a request body limit before buffering the payload.
+
 ```java
 import com.sun.net.httpserver.HttpServer;
 import io.rstream.RstreamException;
@@ -120,5 +123,6 @@ rstream events --webhook --webhook-secret whsec_local_example \
 ```
 
 Create and stop a [tunnel](000-getting-started.md#create-the-application)
-under that project to see the receiver log the events. For a hosted destination,
+under that project to see the receiver log the events. Stop the CLI forwarder
+and the receiver with Ctrl+C when finished. For a hosted destination,
 use a reachable HTTPS receiver and keep its signing secret in a secret store.

@@ -26,6 +26,9 @@ Expect HTTP 200 and the body of the loopback service. You can also pass
 the tunnel ID. The example writes a normal request and reads until EOF,
 using a 15-second socket read timeout. It closes the stream and SDK
 client. The tunnel owner and caller may run on different machines.
+When finished, stop the owner and loopback origin with Ctrl+C and remove
+the temporary directory from the origin's terminal with
+`rm -r -- "$demo_dir"`.
 
 ## Accept streams in Java
 

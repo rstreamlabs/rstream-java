@@ -12,6 +12,10 @@ loop or a request thread.
 | `BytestreamTunnel` | Admission for one service. Close it to retire that tunnel. |
 | `RstreamStream` | One accepted or dialed exchange. Use try-with-resources and application timeouts. |
 
+Use `connectAsync()`, `createTunnelAsync()`, `dialAsync()` and
+`acceptAsync()` for connection and admission work on SDK workers.
+Use an application executor for blocking payload reads and writes.
+
 ## Use a future without blocking an event loop
 
 Schedule the dial and the blocking exchange together on an application

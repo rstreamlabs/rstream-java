@@ -17,7 +17,8 @@ RSTREAM_WEBHOOK_SECRET=whsec_local_example \
 mvn -f examples/spring-boot-webhook-receiver/pom.xml spring-boot:run
 ```
 
-The endpoint listens on `POST /webhooks/rstream`. Keep the request body bytes
+The example binds to `127.0.0.1:8080` for the local test. The endpoint
+listens on `POST /webhooks/rstream`. Keep the request body bytes
 unchanged when passing them to `Webhooks.event(...)`; signature verification is
 performed on the exact payload received over HTTP.
 

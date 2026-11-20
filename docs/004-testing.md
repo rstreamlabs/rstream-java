@@ -40,8 +40,10 @@ RSTREAM_JAVA_E2E_SERVER_NAME=localhost \
 mvn verify
 ```
 
-The certificate must cover the selected server name. Supply test credentials
-through the usual configuration. `RSTREAM_JAVA_E2E_NO_TOKEN=1` is only for a
+The certificate must cover the selected server name. For an explicit Engine
+override, supply credentials for that Engine through
+`RSTREAM_AUTHENTICATION_TOKEN` or the [mTLS file variables](001-configuration.md#environment-variables).
+`RSTREAM_JAVA_E2E_NO_TOKEN=1` is only for a
 local engine configured to accept unauthenticated clients. For an isolated
 throwaway fixture without a trusted certificate, `RSTREAM_JAVA_E2E_TLS_INSECURE=1`
 disables certificate verification; do not use it with a hosted engine.

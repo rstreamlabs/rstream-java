@@ -26,6 +26,7 @@ SDK handler, which reads one bounded HTTP/1.1 request and writes its
 response on the accepted stream. Framework code called by the handler keeps
 its own dependency injection and service lifetime. Framework HTTP
 routers and middleware require the forwarding path below.
+Stop the example with Ctrl+C when finished.
 
 The SDK invokes direct handlers on its workers. Set
 `RstreamHttpOptions` for header and body limits and the request read
@@ -61,4 +62,5 @@ Request the printed HTTPS address and expect the same body as
 `http://127.0.0.1:8000/`. Stop the forwarding process and then the local
 service. An application calling `tunnel.forwardTo("127.0.0.1", 8000)`
 uses the same relay. Select the published tunnel protocol and upstream HTTP
-mode that match the service.
+mode that match the service. If you created the disposable origin, remove its
+directory from the origin's terminal with `rm -r -- "$demo_dir"`.
