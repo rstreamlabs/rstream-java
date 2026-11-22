@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.1](https://github.com/rstreamlabs/rstream-java/compare/rstream-v0.6.0...rstream-v0.6.1) (2026-11-22)
+
+
+### Documentation
+
+* align Java onboarding with the published SDK ([98b9f01](https://github.com/rstreamlabs/rstream-java/commit/98b9f016fd3cad807995bb18e253e64316bd8b90))
+* align repository guidance and agent entry points ([7cb5f7c](https://github.com/rstreamlabs/rstream-java/commit/7cb5f7ce03d14794b9bcdb51cd525143b06a3991))
+* clarify the webhook receiver event catalog ([b92fb9f](https://github.com/rstreamlabs/rstream-java/commit/b92fb9f671401877a0deeeac9c5a7d1f21a6f702))
+* keep public references independent of private repositories ([c856756](https://github.com/rstreamlabs/rstream-java/commit/c85675630082fa4eeb73d1e2ee83956d583f4eef))
+* link CLI installation before Java setup ([d91afe5](https://github.com/rstreamlabs/rstream-java/commit/d91afe54f2baea19171647ea6466aa1e9ef48d51))
+* name the maintainer CI and release guide explicitly ([750d528](https://github.com/rstreamlabs/rstream-java/commit/750d528ceda887df9f90624a6d62f201d5869b80))
+* provide a complete Java application and source workflow ([ddc4768](https://github.com/rstreamlabs/rstream-java/commit/ddc47683f848a8be4d5c2a78f00db17c7f448414))
+
 ## [0.6.0](https://github.com/rstreamlabs/rstream-java/compare/rstream-v0.5.0...rstream-v0.6.0) (2026-11-05)
 
 
