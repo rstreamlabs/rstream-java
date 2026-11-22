@@ -1,6 +1,5 @@
 package io.rstream.examples.spring;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.rstream.BytestreamTunnel;
 import io.rstream.ControlChannel;
 import io.rstream.CreateTunnelOptions;
@@ -10,13 +9,13 @@ import io.rstream.TunnelProtocol;
 import java.net.InetAddress;
 import java.time.Instant;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.json.JsonMapper;
 
 @SpringBootApplication
 public class PublishedHttpApplication {
@@ -26,8 +25,8 @@ public class PublishedHttpApplication {
 
   @Bean(destroyMethod = "close")
   RstreamTunnelPublisher publishRstreamTunnel(
-      HostnameService hostnameService, ObjectMapper objectMapper) {
-    return new RstreamTunnelPublisher(hostnameService, objectMapper);
+      HostnameService hostnameService, JsonMapper jsonMapper) {
+    return new RstreamTunnelPublisher(hostnameService, jsonMapper);
   }
 
   @Service
@@ -42,15 +41,14 @@ public class PublishedHttpApplication {
 
   private static final class RstreamTunnelPublisher implements ApplicationRunner, AutoCloseable {
     private final HostnameService hostnameService;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
     private RstreamClient client;
     private ControlChannel control;
     private BytestreamTunnel tunnel;
-    private CompletableFuture<Void> serving;
 
-    RstreamTunnelPublisher(HostnameService hostnameService, ObjectMapper objectMapper) {
+    RstreamTunnelPublisher(HostnameService hostnameService, JsonMapper jsonMapper) {
       this.hostnameService = hostnameService;
-      this.objectMapper = objectMapper;
+      this.jsonMapper = jsonMapper;
     }
 
     @Override
@@ -66,14 +64,14 @@ public class PublishedHttpApplication {
                   .protocol(TunnelProtocol.HTTP)
                   .labels(Map.of("example", "spring-boot", "service", "http"))
                   .build());
-      serving =
+      var serving =
           tunnel.serveHttp(
               request -> {
                 if (!request.method().equals("GET") || !request.path().equals("/")) {
                   return RstreamHttpResponse.text(404, "Not found.");
                 }
                 return RstreamHttpResponse.json(
-                    200, objectMapper.writeValueAsString(hostnameService.snapshot()));
+                    200, jsonMapper.writeValueAsString(hostnameService.snapshot()));
               });
       System.out.println("rstream forwarding address: " + tunnel.forwardingAddress());
       serving.join();
@@ -81,10 +79,15 @@ public class PublishedHttpApplication {
 
     @Override
     public void close() {
-      if (serving != null) serving.cancel(true);
-      if (tunnel != null) tunnel.close();
-      if (control != null) control.close();
-      if (client != null) client.close();
+      try {
+        if (tunnel != null) tunnel.close();
+      } finally {
+        try {
+          if (control != null) control.close();
+        } finally {
+          if (client != null) client.close();
+        }
+      }
     }
   }
 }

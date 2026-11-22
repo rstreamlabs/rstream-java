@@ -9,7 +9,7 @@
     <java.version>17</java.version>
     <maven.compiler.release>${java.version}</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <vertx.version>5.1.6</vertx.version>
+    <vertx.version>5.2.3</vertx.version>
   </properties>
   <dependencies>
     <dependency>
@@ -45,7 +45,7 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
-        <version>3.6.3</version>
+        <version>3.7.0</version>
         <configuration>
           <mainClass>io.rstream.examples.vertx.PublishedHttpVerticle</mainClass>
         </configuration>

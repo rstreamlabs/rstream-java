@@ -5,6 +5,9 @@ request body against the `rstream-signature` header and returns a parsed event.
 
 ## JDK HTTP receiver
 
+This loopback example illustrates signature verification. For a reachable
+receiver, enforce a request body limit before buffering the payload.
+
 ```java
 import com.sun.net.httpserver.HttpServer;
 import io.rstream.RstreamException;
@@ -54,6 +57,11 @@ as `event.object().path("id").asText("")` for resource fields.
 | `project_id` | Tunnel project identifier, when available. |
 | `cluster_id` | Engine cluster identifier, when available. |
 
+Select the four supported event types in the webhook destination's event
+filters. `Webhooks.event()` rejects WebTTY events even when their signatures are
+valid; use a receiver that supports the [service event catalog](https://rstream.io/docs/integrations/webhooks#receiver-compatibility)
+when subscribing to those events.
+
 ## Headers
 
 | Header | Purpose |
@@ -76,3 +84,45 @@ change the signed bytes.
 Return a 2xx status only after the event has been persisted or fully handled.
 Use `event.id()` as an idempotency key if the receiver writes state, because a
 delivery can be retried.
+
+## First verified local delivery
+
+No rstream account is required for the synthetic receiver check. From the
+repository root, run `mvn install`, then use two terminals with the same local
+fixture secret (`whsec_local_example`, not a production destination secret).
+
+Terminal one starts the JDK receiver on loopback:
+
+```sh
+RSTREAM_WEBHOOK_SECRET=whsec_local_example \
+mvn -f examples/webhook-receiver/pom.xml compile exec:java
+```
+
+Terminal two sends a freshly signed event using the SDK helper:
+
+```sh
+RSTREAM_WEBHOOK_SECRET=whsec_local_example \
+mvn -f examples/webhook-receiver/pom.xml compile exec:java \
+  -Dexec.mainClass=io.rstream.examples.SendTestWebhook
+```
+
+The sender prints `HTTP 200`. The JDK receiver logs `evt_local_example`;
+the Spring and Micronaut receivers return it in the response body. An
+invalid signature returns 400. Use the same sender for Spring/Micronaut receivers on
+`http://127.0.0.1:8080/webhooks/rstream`, or pass a different loopback URL in
+`-Dexec.args`. Do not run several receivers on the same port.
+
+To receive live local events, keep the receiver running. In a second terminal,
+select a project with access to its tunnel events and use the same signing secret
+as the receiver.
+
+```sh
+rstream events --webhook --webhook-secret whsec_local_example \
+  --events tunnel.created,tunnel.deleted \
+  --forward-to http://127.0.0.1:8080/webhooks/rstream
+```
+
+Create and stop a [tunnel](000-getting-started.md#create-the-application)
+under that project to see the receiver log the events. Stop the CLI forwarder
+and the receiver with Ctrl+C when finished. For a hosted destination,
+use a reachable HTTPS receiver and keep its signing secret in a secret store.

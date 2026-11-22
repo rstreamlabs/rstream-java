@@ -1,13 +1,13 @@
-# Private dial
+# Dial a private HTTP service
 
-Dials a private rstream bytestream tunnel by name or ID. Use it with a tunnel
-that was created with `publish(false)`; the caller receives a byte stream
-instead of a public forwarding address.
+Use the [private tunnel walkthrough](../../docs/tunnels/001-private-and-tcp.md#dial-a-private-http-service)
+to start the origin and owner. From the repository root, build the SDK
+snapshot and run the caller:
 
-```bash
-mvn -DskipTests install -f ../../pom.xml
-mvn compile exec:java -Dexec.args="private-api"
+```sh
+mvn -f examples/private-dial/pom.xml compile exec:java -Dexec.args=java-private-http
 ```
 
-The target can be a tunnel name or ID. Runtime configuration is resolved from
-the standard rstream config file or environment variables.
+Expect HTTP 200 and the origin's body. Pass the name or ID of an existing
+tunnel in the caller's project. The program prints the response until EOF
+and closes its resources when the exchange ends.

@@ -54,6 +54,7 @@ contexts:
     auth:
       token:
         storage:
+          kind: inline
           value: eyJ...
 ```
 
@@ -114,7 +115,7 @@ in `RSTREAM_ENGINE` or the `engine` config field.
 
 ## Unsupported config
 
-The Java SDK v0.1 supports bytestream tunnels. It rejects unsupported transport
+The Java SDK supports bytestream tunnels. It rejects unsupported transport
 or credential storage settings instead of ignoring them:
 
 - QUIC transport.
@@ -128,3 +129,32 @@ The `exec` backend is supported by the Go SDK and CLI. Selecting a context or
 environment that uses it raises `ERR_RSTREAM_UNSUPPORTED_MTLS_STORAGE` before
 connecting; this SDK never executes the configured helper. Other contexts in the
 same configuration file remain usable.
+
+## Client and TLS options
+
+Build `ClientOptions` and pass it to `new RstreamClient(options)`. Construction
+resolves no connection; keep the resulting `AutoCloseable` client for the
+application lifetime and use try-with-resources for its controls and streams.
+
+| Builder method | Default | Meaning |
+| --- | --- | --- |
+| `configPath`, `context`, `readConfigFile` | shared path/default; `true` | Select a CLI profile or disable YAML loading. Environment and explicit validation still apply. |
+| `engine`, `projectEndpoint`, `apiUrl`, `region` | resolved context | Direct Engine authority or managed endpoint resolution. Region requires managed metadata and no explicit Engine. |
+| `token`, `noToken`, `requireToken` | resolved identity; unset; `false` | Explicit token, suppress stored tokens, or require an authenticated identity. Token and mTLS cannot be combined. |
+| `controlPlaneHeaders` | empty map | Deployment-access headers with reserved-header validation. |
+| `connectTimeout`, `operationTimeout` | 15 / 30 seconds | Positive connection and protocol-operation budgets; not an application request timeout. |
+| `heartbeat`, `heartbeatInterval` | `true` / 5 seconds | Control admission liveness; 1 second–5 minutes at millisecond precision when enabled. |
+| `zeroRtt` | `true` | rstream stream-handshake optimization, not TLS early data. |
+| `tls` | verified system trust | `TlsOptions.builder()` for trust and certificate identity. |
+
+`TlsOptions` supports `caFile`, `serverName`, `certFile`, `keyFile` and
+`insecureSkipVerify` (default false). When you set `caFile`, its certificates
+replace the JDK's default trust anchors for the Engine connection.
+`serverName` sets the verification identity and sends SNI for a DNS name.
+The file certificate and unencrypted PKCS#8 key must be a pair.
+Keep verification enabled outside isolated synthetic fixtures.
+Deployed services need their own project-scoped
+identity; do not copy a developer's personal CLI config.
+
+Transport selection is an environment/YAML setting in this Java API, not a
+`ClientOptions` builder method. `auto` selects the supported TLS runtime.

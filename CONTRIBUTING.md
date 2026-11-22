@@ -11,20 +11,37 @@ Python, and C++ SDKs.
 
 ## Local setup
 
-Use Java 17 or newer and Maven 3.9 or newer:
+| Tool | Requirement |
+| --- | --- |
+| JDK for SDK/tests | Java 17 or newer, including `javac`; check with `java -version` and `javac -version`. |
+| JDK for formatting | Java 21 or newer: google-java-format 1.36.1 requires it. This does not change the SDK Java 17 runtime baseline. |
+| Maven | 3.9 or newer; `mvn -version` also shows the JDK selected by Maven. |
+| Git and network access | Clone the source and resolve Maven dependencies not already cached. |
 
-```bash
+Clone the repository and verify the SDK from its root:
+
+```sh
+git clone https://github.com/rstreamlabs/rstream-java.git
+cd rstream-java
 mvn verify
 ```
 
+This compiles the SDK, generates its protocol classes, runs local tests and writes the JAR under `target/`. It does not require a rstream account or a running engine. The Maven build resolves its Protobuf compiler; a separate system `protoc` is not a prerequisite.
+
+To run checkout examples against your edits, use `mvn install` to test and install the local SDK snapshot in your Maven repository, then follow the [example catalog](examples/README.md). Applications consuming the published SDK use the separate [first-application guide](docs/000-getting-started.md).
+
 ## Development checks
 
-Run the full local suite before opening a pull request:
+Select JDK 21 or newer for the full contributor checks (verify Maven's JDK with `mvn -version`) before opening a pull request:
 
 ```bash
 mvn spotless:check
 mvn verify
 ```
+
+`mvn verify` also works on JDK 17; the automatic formatting phase is activated
+only on JDK 21+. Do not invoke `spotless:check` with JDK 17. CI separately tests
+SDK behavior on Java 17 and 21.
 
 When a change affects runtime behavior, include the relevant fake-engine or
 real-engine e2e command in the PR description. Public pull requests do not run
@@ -50,7 +67,7 @@ Use the smallest test that exercises the behavior:
 - fake-engine integration tests for runtime control-channel and stream behavior;
 - opt-in e2e tests for real engines and managed environments.
 
-See [docs/004-testing.md](docs/004-testing.md) for the e2e matrix.
+See [Testing](docs/004-testing.md) for commands, the [test coverage](src/test/README.md) for suite scope and [repository automation](.github/README.md) for releases.
 
 ## Generated code
 
