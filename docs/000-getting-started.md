@@ -7,15 +7,26 @@ published service, use a context that permits HTTP publication.
 
 ## Configure access
 
-Install the [rstream CLI](https://rstream.io/docs/getting-started/installation), then authenticate and select the project:
+For hosted rstream, use an [installed CLI](https://rstream.io/docs/getting-started/installation)
+and a project that permits HTTP publication. Sign in with the CLI.
 
 ```sh
 rstream login
+```
+
+List your projects.
+
+```sh
 rstream project list
+```
+
+Replace `my-project-endpoint` with the value from the `ENDPOINT` column.
+
+```sh
 rstream project use my-project-endpoint
 ```
 
-Replace the endpoint with the value shown by `rstream project list`. `RstreamClient.fromEnv()` reads that selected context. Services can use explicit credentials instead; [Configuration](001-configuration.md) describes those choices. Use a provisioned identity for a deployed service.
+`RstreamClient.fromEnv()` reads that selected context. Services can use explicit credentials instead; [Configuration](001-configuration.md) describes those choices. Use a provisioned identity for a deployed service.
 
 ## Create the application
 
@@ -67,7 +78,34 @@ Save this as `pom.xml`:
 </project>
 ```
 
-Copy the complete [README HTTP program](../README.md#serve-http-through-a-tunnel) into `src/main/java/PublishedTunnel.java`. Build and run it from the directory containing the POM:
+Save the following class as `src/main/java/PublishedTunnel.java`.
+
+```java
+import io.rstream.CreateTunnelOptions;
+import io.rstream.HttpVersion;
+import io.rstream.RstreamClient;
+import io.rstream.RstreamHttpResponse;
+import io.rstream.TunnelProtocol;
+
+public final class PublishedTunnel {
+  public static void main(String[] args) throws Exception {
+    try (var client = RstreamClient.fromEnv();
+        var control = client.connect();
+        var tunnel =
+            control.createTunnel(
+                CreateTunnelOptions.builder()
+                    .protocol(TunnelProtocol.HTTP)
+                    .httpVersion(HttpVersion.HTTP_1_1)
+                    .publish(true)
+                    .build())) {
+      System.out.println(tunnel.forwardingAddress());
+      tunnel.serveHttp(request -> RstreamHttpResponse.text(200, "Hello from rstream")).join();
+    }
+  }
+}
+```
+
+From the directory containing the POM, compile and start the server.
 
 ```sh
 mvn compile exec:java
