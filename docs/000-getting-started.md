@@ -7,26 +7,33 @@ published service, use a context that permits HTTP publication.
 
 ## Configure access
 
-For hosted rstream, use an [installed CLI](https://rstream.io/docs/getting-started/installation)
-and a project that permits HTTP publication. Sign in with the CLI.
+With the [rstream CLI](https://rstream.io/docs/getting-started/installation) installed, sign in and approve the request in the browser.
 
 ```sh
 rstream login
 ```
 
-List your projects.
+List the projects available to this identity.
 
 ```sh
 rstream project list
 ```
 
-Replace `my-project-endpoint` with the value from the `ENDPOINT` column.
+If the list is empty, open the workspace in the [Dashboard](https://rstream.io/dashboard).
+Workspace owners and admins can select **Create new project**. A Basic project
+supports this HTTP example. Other members can ask an owner or admin for access
+to an existing project. If the CLI login was limited to specific projects, run
+`rstream login` again to include the intended project. Run `rstream project list`
+again after gaining access.
+
+Choose a project that allows HTTP publication. Replace `my-project-endpoint`
+with its `ENDPOINT` value.
 
 ```sh
 rstream project use my-project-endpoint
 ```
 
-`RstreamClient.fromEnv()` reads that selected context. Services can use explicit credentials instead; [Configuration](001-configuration.md) describes those choices. Use a provisioned identity for a deployed service.
+`RstreamClient.fromEnv()` reads that selected context. For Community Edition, select the [direct Engine context](https://rstream.io/docs/tunnels/self-hosted/deployment#agent-context). For a deployed service, use a [provisioned identity](001-configuration.md).
 
 ## Create the application
 
@@ -55,7 +62,7 @@ Save this as `pom.xml`:
     <dependency>
       <groupId>io.rstream</groupId>
       <artifactId>rstream</artifactId>
-      <version>0.6.0</version>
+      <version>0.6.1</version>
     </dependency>
   </dependencies>
   <build>
@@ -78,7 +85,7 @@ Save this as `pom.xml`:
 </project>
 ```
 
-Save the following class as `src/main/java/PublishedTunnel.java`.
+Save the server as `src/main/java/PublishedTunnel.java`.
 
 ```java
 import io.rstream.CreateTunnelOptions;
@@ -105,7 +112,7 @@ public final class PublishedTunnel {
 }
 ```
 
-From the directory containing the POM, compile and start the server.
+Build and run the application from the directory containing `pom.xml`.
 
 ```sh
 mvn compile exec:java
@@ -129,8 +136,8 @@ cd rstream-java
 mvn install
 ```
 
-This runs local checks and installs the checkout's SDK snapshot in
-your Maven cache. It needs no Engine. Select the context described above
+This runs local checks and installs the checkout's SDK in
+the local Maven repository. It needs no Engine. Select the context described above
 and run a program from the [example catalog](../examples/README.md).
 For formatting and contribution checks, use the JDK specified in
 [Contributing](../CONTRIBUTING.md#local-setup).
@@ -138,5 +145,3 @@ For formatting and contribution checks, use the JDK specified in
 ## Continue the integration
 
 The try-with-resources block owns the client, control connection and tunnel. In a larger service, tie those resources to the application's lifecycle rather than creating a new tunnel for every request. [Tunnels](002-tunnels.md) covers private dialing, local forwarding, async operations and shutdown.
-
-The [example catalog](../examples/README.md) contains complete framework integrations. Those checkout examples use the local SDK snapshot; follow their source-build setup when evaluating changes to the SDK itself. [Contributing](../CONTRIBUTING.md) covers that separate development path.

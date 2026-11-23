@@ -28,19 +28,19 @@ Add the published SDK from Maven Central. For a new application, [Run a first Ja
 <dependency>
   <groupId>io.rstream</groupId>
   <artifactId>rstream</artifactId>
-  <version>0.6.0</version>
+  <version>0.6.1</version>
 </dependency>
 ```
 
 For Gradle Kotlin DSL:
 
 ```kotlin
-implementation("io.rstream:rstream:0.6.0")
+implementation("io.rstream:rstream:0.6.1")
 ```
 
 ## Serve HTTP through a tunnel
 
-The example uses the [configuration](docs/001-configuration.md) selected with the [rstream CLI](https://rstream.io/docs/getting-started/installation). Install the CLI, then run `rstream login` and `rstream project use my-project-endpoint`, using your own project endpoint. Unattended services can instead use project-scoped credentials or certificate files.
+Select a [project or Engine context](docs/000-getting-started.md#configure-access) that permits HTTP publication. The client reads that context when it connects. Save the following class as `PublishedTunnel.java`.
 
 ```java
 import io.rstream.CreateTunnelOptions;
@@ -67,7 +67,7 @@ public final class PublishedTunnel {
 }
 ```
 
-Save the class as `PublishedTunnel.java` in the application source tree. The [first-application guide](docs/000-getting-started.md) provides its build and launch setup. The printed address routes HTTP requests to this process without a local listening port. See the [standalone HTTP example](examples/published-http-server) for a complete Maven project, or use `forwardTo()` for an existing local server.
+Run `mvn compile exec:java` with the [example POM](docs/000-getting-started.md#create-the-application). Open the printed HTTPS address to receive `Hello from rstream`. Stop the process with Ctrl+C. To keep an existing HTTP server, [forward to its local port](docs/tunnels/000-http-applications.md#keep-an-existing-http-server).
 
 ## Documentation
 

@@ -4,15 +4,10 @@ This example starts a Quarkus application, opens a published rstream tunnel
 from CDI lifecycle hooks, and serves incoming HTTP streams through a CDI bean.
 It does not bind a local HTTP server.
 
-Install the local SDK snapshot first:
+Use a [configured context](../../docs/000-getting-started.md#configure-access) that allows published HTTP. From the repository root, install the SDK and start the example.
 
-```bash
+```sh
 mvn -DskipTests install
-```
-
-Run the application with the same configuration used by the CLI:
-
-```bash
 mvn -f examples/quarkus-published-http/pom.xml quarkus:dev
 ```
 

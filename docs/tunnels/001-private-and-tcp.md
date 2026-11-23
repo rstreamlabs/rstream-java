@@ -15,7 +15,7 @@ rstream forward 127.0.0.1:8000 --no-publish --name java-private-http
 ```
 
 Wait for the tunnel to come online. With a caller context allowed to
-dial that tunnel and a [built SDK snapshot](../000-getting-started.md#build-the-checkout),
+dial that tunnel and a [locally built SDK](../000-getting-started.md#build-the-checkout),
 run the Java client from the repository root.
 
 ```sh

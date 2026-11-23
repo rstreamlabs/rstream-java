@@ -1,9 +1,8 @@
 # Java application examples
 
-These projects show direct tunnel integration, private dialing and framework-specific HTTP or webhook handling. Start with `published-http-server` for the smallest running service. They consume the SDK snapshot from this checkout, rather than the published Maven Central version.
+Start with `published-http-server` for a plain JDK handler. The table also includes local forwarding, private dialing and framework-specific HTTP and webhook examples.
 
-[Build and install the SDK snapshot](../docs/000-getting-started.md#build-the-checkout).
-Use the Maven commands from the repository root. Tunnel examples need a
+[Install the SDK from this checkout](../docs/000-getting-started.md#build-the-checkout) before running an example. Run the Maven commands from the repository root. Tunnel examples need a
 context that allows publication or private dialing. Webhook examples
 verify signed deliveries locally without an Engine.
 
@@ -25,9 +24,7 @@ the standard rstream config file or environment variables.
 
 ## Run the first server
 
-[Install the CLI](https://rstream.io/docs/getting-started/installation), run `rstream login` and select a project with `rstream project use my-project-endpoint`. Replace the endpoint with your project's value. The HTTP example needs permission to publish a tunnel.
-
-From the repository root:
+Select a [project or Engine context](../docs/000-getting-started.md#configure-access) with permission to publish HTTP. From the repository root, run the JDK server.
 
 ```sh
 mvn -f examples/published-http-server/pom.xml compile exec:java

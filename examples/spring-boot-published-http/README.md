@@ -4,15 +4,10 @@ This example starts a Spring Boot application context, opens a published
 rstream tunnel, and serves incoming HTTP streams through Spring-managed
 application code. It does not bind a local web server.
 
-Install the local SDK snapshot first:
+Use a [configured context](../../docs/000-getting-started.md#configure-access) that allows published HTTP. From the repository root, install the SDK and start the example.
 
-```bash
+```sh
 mvn -DskipTests install
-```
-
-Run the application with the same configuration used by the CLI:
-
-```bash
 mvn -f examples/spring-boot-published-http/pom.xml spring-boot:run
 ```
 

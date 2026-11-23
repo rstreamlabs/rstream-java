@@ -1,8 +1,7 @@
 # Dial a private HTTP service
 
 Use the [private tunnel walkthrough](../../docs/tunnels/001-private-and-tcp.md#dial-a-private-http-service)
-to start the origin and owner. From the repository root, build the SDK
-snapshot and run the caller:
+to start the origin and owner. With the checkout build installed, run the caller from the repository root.
 
 ```sh
 mvn -f examples/private-dial/pom.xml compile exec:java -Dexec.args=java-private-http

@@ -4,15 +4,10 @@ This example receives signed rstream webhook deliveries in a Spring Boot
 controller. The SDK verifies the raw request body before the application uses
 the parsed event.
 
-Install the local SDK snapshot first:
+For a local test, install the SDK and start the receiver from the repository root.
 
 ```bash
 mvn -DskipTests install
-```
-
-Run the receiver:
-
-```bash
 RSTREAM_WEBHOOK_SECRET=whsec_local_example \
 mvn -f examples/spring-boot-webhook-receiver/pom.xml spring-boot:run
 ```

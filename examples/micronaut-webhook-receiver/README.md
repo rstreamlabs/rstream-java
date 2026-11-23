@@ -4,15 +4,10 @@ This example verifies signed rstream webhook deliveries inside a Micronaut
 controller. It demonstrates the important receiver rule: pass the exact raw
 request body bytes to the SDK before trusting the parsed event.
 
-Run these commands from the repository root using the [JDK/Maven prerequisites](../../CONTRIBUTING.md). Install the local SDK snapshot first:
+For a local test, install the SDK and start the receiver from the repository root.
 
 ```bash
 mvn -DskipTests install
-```
-
-Run the receiver:
-
-```bash
 RSTREAM_WEBHOOK_SECRET=whsec_local_example \
 mvn -f examples/micronaut-webhook-receiver/pom.xml compile exec:java
 ```
