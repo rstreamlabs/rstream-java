@@ -22,7 +22,7 @@ The engine connection uses TLS. Datagram tunnels, QUIC runtime transport and HTT
 
 ## Install
 
-Add the published SDK from Maven Central. For a new application, [Run a first Java application](docs/000-getting-started.md) provides a complete Maven project and launch command:
+For an existing Maven application, add the published SDK from Maven Central:
 
 ```xml
 <dependency>
@@ -40,34 +40,55 @@ implementation("io.rstream:rstream:0.6.1")
 
 ## Serve HTTP through a tunnel
 
-Select a [project or Engine context](docs/000-getting-started.md#configure-access) that permits HTTP publication. The client reads that context when it connects. Save the following class as `PublishedTunnel.java`.
+The repository includes a standalone server in `examples/published-http-server`. Its `pom.xml` declares the SDK and its `PublishedHttpServer` class serves the machine hostname.
 
 ```java
+package io.rstream.examples;
+
 import io.rstream.CreateTunnelOptions;
 import io.rstream.HttpVersion;
 import io.rstream.RstreamClient;
 import io.rstream.RstreamHttpResponse;
 import io.rstream.TunnelProtocol;
+import java.net.InetAddress;
 
-public final class PublishedTunnel {
+public final class PublishedHttpServer {
+  private PublishedHttpServer() {}
+
   public static void main(String[] args) throws Exception {
     try (var client = RstreamClient.fromEnv();
-        var control = client.connect();
-        var tunnel =
-            control.createTunnel(
-                CreateTunnelOptions.builder()
-                    .protocol(TunnelProtocol.HTTP)
-                    .httpVersion(HttpVersion.HTTP_1_1)
-                    .publish(true)
-                    .build())) {
-      System.out.println(tunnel.forwardingAddress());
-      tunnel.serveHttp(request -> RstreamHttpResponse.text(200, "Hello from rstream")).join();
+        var control = client.connect()) {
+      // RstreamClient.fromEnv reads the selected rstream context, like the CLI.
+      var tunnel =
+          control.createTunnel(
+              CreateTunnelOptions.builder()
+                  .protocol(TunnelProtocol.HTTP)
+                  .httpVersion(HttpVersion.HTTP_1_1)
+                  .publish(true)
+                  .build());
+      System.out.println("Forwarding address: " + tunnel.forwardingAddress());
+      // serveHttp accepts rstream streams and handles HTTP in this process.
+      tunnel.serveHttp(request -> RstreamHttpResponse.text(200, InetAddress.getLocalHost().getHostName())).join();
     }
   }
 }
 ```
 
-Run `mvn compile exec:java` with the [example POM](docs/000-getting-started.md#create-the-application). Open the printed HTTPS address to receive `Hello from rstream`. Stop the process with Ctrl+C. To keep an existing HTTP server, [forward to its local port](docs/tunnels/000-http-applications.md#keep-an-existing-http-server).
+To run the example with Java 17 or newer and Maven 3.9 or newer, clone the repository or use an existing checkout.
+
+```sh
+git clone --depth 1 https://github.com/rstreamlabs/rstream-java.git
+cd rstream-java
+```
+
+From the repository root, start the application using the example’s POM. The server reads the selected CLI project or direct Engine context, which must permit HTTP publication.
+
+```sh
+mvn -f examples/published-http-server/pom.xml compile exec:java
+```
+
+Open the printed HTTPS address to receive the machine hostname. Stop with Ctrl+C.
+To keep an existing HTTP server, [forward to its local port](docs/tunnels/000-http-applications.md#keep-an-existing-http-server).
 
 ## Documentation
 
