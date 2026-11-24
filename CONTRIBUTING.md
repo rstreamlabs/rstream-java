@@ -28,7 +28,7 @@ mvn verify
 
 This compiles the SDK, generates its protocol classes, runs local tests and writes the JAR under `target/`. It does not require a rstream account or a running engine. The Maven build resolves its Protobuf compiler; a separate system `protoc` is not a prerequisite.
 
-To run checkout examples against your edits, use `mvn install` to test and install the local SDK snapshot in your Maven repository, then follow the [example catalog](examples/README.md). Applications consuming the published SDK use the separate [first-application guide](docs/000-getting-started.md).
+To run checkout examples against your edits, use `mvn install` to test and install the SDK from this checkout in the local Maven repository, then follow the [example catalog](examples/README.md). Applications consuming the published SDK use the separate [first-application guide](docs/000-getting-started.md).
 
 ## Development checks
 

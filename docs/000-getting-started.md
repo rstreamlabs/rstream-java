@@ -7,15 +7,33 @@ published service, use a context that permits HTTP publication.
 
 ## Configure access
 
-Install the [rstream CLI](https://rstream.io/docs/getting-started/installation), then authenticate and select the project:
+With the [rstream CLI](https://rstream.io/docs/getting-started/installation) installed, sign in and approve the request in the browser.
 
 ```sh
 rstream login
+```
+
+List the projects available to this identity.
+
+```sh
 rstream project list
+```
+
+If the list is empty, open the workspace in the [Dashboard](https://rstream.io/dashboard).
+Workspace owners and admins can select **Create new project**. A Basic project
+supports this HTTP example. Other members can ask an owner or admin for access
+to an existing project. If the CLI login was limited to specific projects, run
+`rstream login` again to include the intended project. Run `rstream project list`
+again after gaining access.
+
+Choose a project that allows HTTP publication. Replace `my-project-endpoint`
+with its `ENDPOINT` value.
+
+```sh
 rstream project use my-project-endpoint
 ```
 
-Replace the endpoint with the value shown by `rstream project list`. `RstreamClient.fromEnv()` reads that selected context. Services can use explicit credentials instead; [Configuration](001-configuration.md) describes those choices. Use a provisioned identity for a deployed service.
+`RstreamClient.fromEnv()` reads that selected context. For Community Edition, select the [direct Engine context](https://rstream.io/docs/tunnels/self-hosted/deployment#agent-context). For a deployed service, use a [provisioned identity](001-configuration.md).
 
 ## Create the application
 
@@ -44,7 +62,7 @@ Save this as `pom.xml`:
     <dependency>
       <groupId>io.rstream</groupId>
       <artifactId>rstream</artifactId>
-      <version>0.6.0</version>
+      <version>0.6.1</version>
     </dependency>
   </dependencies>
   <build>
@@ -67,7 +85,34 @@ Save this as `pom.xml`:
 </project>
 ```
 
-Copy the complete [README HTTP program](../README.md#serve-http-through-a-tunnel) into `src/main/java/PublishedTunnel.java`. Build and run it from the directory containing the POM:
+Save the server as `src/main/java/PublishedTunnel.java`.
+
+```java
+import io.rstream.CreateTunnelOptions;
+import io.rstream.HttpVersion;
+import io.rstream.RstreamClient;
+import io.rstream.RstreamHttpResponse;
+import io.rstream.TunnelProtocol;
+
+public final class PublishedTunnel {
+  public static void main(String[] args) throws Exception {
+    try (var client = RstreamClient.fromEnv();
+        var control = client.connect();
+        var tunnel =
+            control.createTunnel(
+                CreateTunnelOptions.builder()
+                    .protocol(TunnelProtocol.HTTP)
+                    .httpVersion(HttpVersion.HTTP_1_1)
+                    .publish(true)
+                    .build())) {
+      System.out.println(tunnel.forwardingAddress());
+      tunnel.serveHttp(request -> RstreamHttpResponse.text(200, "Hello from rstream")).join();
+    }
+  }
+}
+```
+
+Build and run the application from the directory containing `pom.xml`.
 
 ```sh
 mvn compile exec:java
@@ -91,8 +136,8 @@ cd rstream-java
 mvn install
 ```
 
-This runs local checks and installs the checkout's SDK snapshot in
-your Maven cache. It needs no Engine. Select the context described above
+This runs local checks and installs the checkout's SDK in
+the local Maven repository. It needs no Engine. Select the context described above
 and run a program from the [example catalog](../examples/README.md).
 For formatting and contribution checks, use the JDK specified in
 [Contributing](../CONTRIBUTING.md#local-setup).
@@ -100,5 +145,3 @@ For formatting and contribution checks, use the JDK specified in
 ## Continue the integration
 
 The try-with-resources block owns the client, control connection and tunnel. In a larger service, tie those resources to the application's lifecycle rather than creating a new tunnel for every request. [Tunnels](002-tunnels.md) covers private dialing, local forwarding, async operations and shutdown.
-
-The [example catalog](../examples/README.md) contains complete framework integrations. Those checkout examples use the local SDK snapshot; follow their source-build setup when evaluating changes to the SDK itself. [Contributing](../CONTRIBUTING.md) covers that separate development path.

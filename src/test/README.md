@@ -41,7 +41,7 @@ Published TCP reachability is enabled with `RSTREAM_JAVA_E2E_PUBLISHED_TCP=1`.
 
 ## Examples
 
-Every example must compile against the local SDK snapshot. Framework examples are
+Every example must compile against the SDK built from the same checkout. Framework examples are
 kept outside the core SDK to validate that the API works naturally with common
 Java stacks without adding framework dependencies to the SDK itself.
 

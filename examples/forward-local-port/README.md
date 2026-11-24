@@ -4,7 +4,7 @@ The SDK owns the tunnel and forwards each stream to a local server. This example
 creates an HTTP tunnel: the local service must speak HTTP. Use the TCP creation
 options from [Tunnels](../../docs/002-tunnels.md#create-a-published-tcp-tunnel) for raw TCP.
 
-From the repository root, install the SDK snapshot with `mvn install` and select
+From the repository root, install the SDK with `mvn install` and select
 a permitted CLI context as in the [example catalog](../README.md).
 
 Start the [loopback origin](../../docs/tunnels/000-http-applications.md#keep-an-existing-http-server)

@@ -72,14 +72,9 @@ hostname that is not directly resolvable from the test process.
 
 ## Examples
 
-Install the local snapshot before compiling or running examples:
+From the repository root, install the current SDK and start the JDK HTTP example with a configured project or Engine context.
 
 ```bash
 mvn install
-```
-
-Then run an example module:
-
-```bash
 mvn -f examples/published-http-server/pom.xml compile exec:java
 ```

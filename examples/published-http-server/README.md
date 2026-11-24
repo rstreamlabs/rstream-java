@@ -3,14 +3,13 @@
 Serves HTTP directly from accepted rstream streams. No local HTTP server is
 started.
 
-Use the [catalog setup](../README.md) first. Run this block from the example's own directory; the `../../pom.xml` path selects the SDK root.
+From the repository root, install the SDK and launch the example.
 
-```bash
-mvn -DskipTests install -f ../../pom.xml
-mvn compile exec:java
+```sh
+mvn -DskipTests install
+mvn -f examples/published-http-server/pom.xml compile exec:java
 ```
 
-Configure the engine, project, and authentication through the standard rstream
-config file or environment variables. The printed forwarding address should
-return the hostname while the process is running.
+The server uses the [selected project or Engine context](../../docs/000-getting-started.md#configure-access).
+Open the printed forwarding address to receive the server's hostname.
 Stop the process with Ctrl+C.

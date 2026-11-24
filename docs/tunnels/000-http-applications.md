@@ -7,7 +7,7 @@ HTTP tunnel that supports WebSocket upgrades if your application needs them.
 
 ## Run the direct HTTP examples
 
-[Build and install the SDK snapshot](../000-getting-started.md#build-the-checkout)
+[Build and install the SDK from this checkout](../000-getting-started.md#build-the-checkout)
 and select a project or Engine context with permission to publish HTTP.
 Run one of these commands from the checkout root.
 
@@ -35,7 +35,7 @@ owning service, as described in [lifecycle and futures](002-lifecycle.md).
 
 ## Keep an existing HTTP server
 
-[Build and install the SDK snapshot](../000-getting-started.md#build-the-checkout)
+[Build and install the SDK from this checkout](../000-getting-started.md#build-the-checkout)
 and choose a context that can publish HTTP. Start your framework on a
 local interface such as loopback and make a request to it first.
 

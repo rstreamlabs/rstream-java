@@ -1,18 +1,26 @@
 # Webhook receiver
 
-JDK HTTP receiver that verifies rstream webhook signatures before parsing the
-event. The secret must be the endpoint signing secret shown after webhook
-creation or rotation.
+This JDK HTTP receiver verifies the `rstream-signature` header against the
+raw request body before parsing the event with `Webhooks.event(...)`.
 
-Use the [catalog setup](../README.md) first. Run this block from the example's own directory; the `../../pom.xml` path selects the SDK root.
+From the repository root, install the SDK and start the receiver on loopback
+with a local test secret.
 
-```bash
-mvn -DskipTests install -f ../../pom.xml
-export RSTREAM_WEBHOOK_SECRET="whsec_..."
-mvn compile exec:java
+```sh
+mvn -DskipTests install
+RSTREAM_WEBHOOK_SECRET=whsec_local_example \
+  mvn -f examples/webhook-receiver/pom.xml compile exec:java
 ```
 
-Keep the raw request body unchanged until `Webhooks.event(...)` has checked the
-`rstream-signature` header.
+In a second terminal at the repository root, send a signed event.
 
-Use [First verified local delivery](../../docs/003-webhooks.md#first-verified-local-delivery) to send a synthetic signed event without a rstream account. The default endpoint is `http://127.0.0.1:8080/webhooks/rstream`; run only one receiver on that port. Stop it with an interrupt.
+```sh
+RSTREAM_WEBHOOK_SECRET=whsec_local_example \
+  mvn -f examples/webhook-receiver/pom.xml compile exec:java \
+    -Dexec.mainClass=io.rstream.examples.SendTestWebhook
+```
+
+The sender prints `HTTP 200` and the receiver logs `evt_local_example`.
+Stop the receiver with Ctrl+C. For a configured webhook destination, use
+the signing secret returned at creation or rotation. See
+[Webhooks](../../docs/003-webhooks.md) for headers and event handling.
